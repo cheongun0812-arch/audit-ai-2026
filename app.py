@@ -1,116 +1,153 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from streamlit_lottie import st_lottie
-import requests
-import time
+from datetime import datetime
 
-# --- 1. 페이지 설정 및 디자인 (강렬한 리스크 강조 테마) ---
+# --- 1. 페이지 설정 및 시각 요소 ---
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0A0A0B; color: #E0E0E0; }
-    .main-title { font-size: 50px; font-weight: 900; color: #FFD700; }
-    /* 위반 내역 강조 박스 */
-    .violation-card { 
-        background: #2D0A0A; border: 2px solid #FF4B4B; padding: 25px; 
-        border-radius: 15px; margin-bottom: 30px; 
+    .main-title { font-size: 45px; font-weight: 900; color: #FFD700; margin-bottom: 10px; }
+    .sub-title { font-size: 18px; color: #AAAAAA; margin-bottom: 30px; }
+    .status-card { 
+        background: #161618; border-left: 5px solid #FF4B4B; padding: 20px; 
+        border-radius: 10px; margin-bottom: 20px;
     }
-    .red-text { color: #FF4B4B; font-weight: 900; font-size: 24px; }
-    .gold-text { color: #FFD700; font-weight: bold; }
-    /* 테이블 가독성 */
-    .stTable { background-color: #161618 !important; border-radius: 10px; }
-    thead tr th { background-color: #FF4B4B !important; color: white !important; font-size: 16px !important; }
+    .audit-label { font-weight: bold; color: #FF4B4B; }
+    .stDataFrame { border: 1px solid #333; }
     </style>
     """, unsafe_allow_html=True)
 
-# 헤더
-st.markdown('<p class="main-title">🛡️ 2026 AUDIT AI PORTAL</p>', unsafe_allow_html=True)
-st.write("### ⚠️ 실시간 법인카드 규정 위반 모니터링 시스템")
+# --- 2. 감사 엔진 클래스 (Logic Layer) ---
+class AuditEngine:
+    @staticmethod
+    def infer_category_risk(row, night_start, night_end):
+        """AI 업종 추론 로직: 가맹점명과 결제시간을 분석"""
+        score = 0
+        reasons = []
+        
+        # 1. 심야 시간대 위반 (기본 규칙)
+        is_night = (row['hour'] >= night_start) or (row['hour'] <= night_end)
+        if is_night:
+            score += 40
+            reasons.append("🌙 심야사용")
 
-# --- 2. 사이드바 ---
+        # 2. 위장 가맹점 추론 (AI 패턴 매칭)
+        hidden_keywords = ['유통', '기획', '네트웍스', '컨설팅', '종합']
+        if any(k in row['가맹점명'] for k in hidden_keywords) and is_night:
+            score += 30
+            reasons.append("🔍 위장가맹점 의심(심야 결제)")
+            
+        # 3. 고액 결제
+        if row['이용금액'] >= 500000:
+            score += 30
+            reasons.append("💰 고액결제")
+
+        return pd.Series([score, ", ".join(reasons)])
+
+    @staticmethod
+    def detect_split_payments(df, window_min=5):
+        """분할 결제 탐지 (동일인, 동일가맹점, n분 이내)"""
+        df = df.sort_values(by=['사용자', '승인일시'])
+        df['prev_time'] = df.groupby(['사용자', '가맹점명'])['승인일시'].shift(1)
+        df['time_diff'] = (df['승인일시'] - df['prev_time']).dt.total_seconds() / 60
+        return df[df['time_diff'] <= window_min]
+
+# --- 3. 헤더 및 사이드바 제어 ---
+st.markdown('<p class="main-title">🛡️ 2026 AUDIT AI PORTAL</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">데이터 업로드 및 이상징후 탐지 단계 (Pre-Audit Analysis)</p>', unsafe_allow_html=True)
+
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
-    st.markdown("### ⚙️ 감사 기준 설정")
-    night_start = st.slider("심야 시작", 0, 23, 23)
-    night_end = st.slider("심야 종료", 0, 23, 6)
+    st.header("⚙️ 감사 기준 설정")
+    night_start = st.slider("심야 시작(시)", 0, 23, 23)
+    night_end = st.slider("심야 종료(시)", 0, 23, 6)
     high_limit = st.number_input("고액 결제 기준(원)", value=500000)
+    split_min = st.number_input("분할결제 의심(분)", value=5)
+    st.divider()
+    st.info("설정한 기준에 따라 AI가 위험 점수를 자동으로 계산합니다.")
 
-# --- 3. 데이터 로드 및 분석 로직 ---
-uploaded_file = st.file_uploader("파일을 업로드하면 즉시 위반 리스크를 탐지합니다", type=['csv', 'xlsx'])
+# --- 4. 데이터 로드 및 전처리 ---
+uploaded_file = st.file_uploader("법인카드 사용내역(CSV/XLSX)을 업로드하세요", type=['csv', 'xlsx'])
 
 if uploaded_file:
     try:
-        if uploaded_file.name.endswith('.csv'):
-            raw_df = pd.read_csv(uploaded_file, header=None)
-        else:
-            raw_df = pd.read_excel(uploaded_file, header=None)
+        # 데이터 읽기
+        df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
         
-        # 헤더 자동 탐색
-        header_row = 0
-        for i, row in raw_df.head(10).iterrows():
-            if any(x in str(row.values) for x in ["금액", "승인", "거래처"]):
-                header_row = i
-                break
-        df = raw_df.iloc[header_row+1:].copy()
-        df.columns = [str(c).strip() for c in raw_df.iloc[header_row].values]
+        # [데이터 정제] 컬럼 매핑 자동화 (예시 기반 최적화)
+        # 실제 환경에선 사용자 파일의 컬럼명에 맞춰 수정 필요
+        # 예시: '거래처명'->'가맹점명', '승인일자'->'날짜' 등
+        df = df_raw.copy()
+        # (편의상 시뮬레이션을 위해 컬럼명 표준화 로직 생략, 실제 업로드 데이터 컬럼 기준)
         
-        # 중복 컬럼 처리 및 매핑 (생략 없이 통합)
-        col_map = {'금액':['금액','이용금액','합계'], '날짜':['승인일자','거래일자'], '시간':['승인일시','승인시간'], '가맹점':['거래처명','가맹점명'], '사용자':['사용자','이용자명']}
-        f_map = {}
-        for k, v in col_map.items():
-            for c in df.columns:
-                if any(x in str(c) for x in v): f_map[k] = c; break
+        # 시간/날짜 전처리
+        df['승인일시'] = pd.to_datetime(df['승인일시'])
+        df['hour'] = df['승인일시'].dt.hour
+        df['날짜'] = df['승인일시'].dt.date
+        df['이용금액'] = pd.to_numeric(df['이용금액'], errors='coerce').fillna(0)
 
-        # 정제
-        df[f_map['금액']] = pd.to_numeric(df[f_map['금액']].astype(str).str.replace('[^0-9]', '', regex=True), errors='coerce').fillna(0)
-        df[f_map['날짜']] = pd.to_datetime(df[f_map['날짜']].astype(str).str.split(' ').str[0])
+        # --- 5. AI 분석 실행 ---
+        # 1) 위험 점수 및 사유 계산
+        df[['risk_score', 'violation_type']] = df.apply(
+            lambda x: AuditEngine.infer_category_risk(x, night_start, night_end), axis=1
+        )
         
-        # 심야/휴일 분석
-        df['hour'] = pd.to_datetime(df[f_map['시간']].astype(str)).dt.hour
-        df['is_night'] = (df['hour'] >= night_start) | (df['hour'] <= night_end)
-        df['is_holiday'] = df[f_map['날짜']].dt.weekday >= 5
-
-        # ---------------------------------------------------------
-        # 🚨 [최상단 배치] 위반 리스크 요약 및 리스트
-        # ---------------------------------------------------------
-        night_df = df[df['is_night']].copy()
-        holiday_df = df[df['is_holiday']].copy()
+        # 2) 분할 결제 탐지
+        split_cases = AuditEngine.detect_split_payments(df, split_min)
         
-        st.markdown('<div class="violation-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="red-text">🚨 위반 리스크 탐지 보고 (심야 {len(night_df)}건 / 휴일 {len(holiday_df)}건)</p>', unsafe_allow_html=True)
+        # --- 6. 결과 화면 구성 (Output) ---
         
-        if not night_df.empty:
-            st.markdown(f"### 🌙 심야 위반 의심 내역 ({len(night_df)}건)")
-            night_display = night_df[[f_map['날짜'], f_map['시간'], f_map['가맹점'], f_map['금액'], f_map['사용자']]].copy()
-            night_display['위반내용'] = "🌙심야 사용"
-            night_display.columns = ['거래일자', '승인시간', '가맹점명', '이용금액', '사용자', '위반내용']
-            night_display['거래일자'] = night_display['거래일자'].dt.strftime('%Y-%m-%d')
-            
-            # 실장님이 원하신 표 형식
-            st.table(night_display.style.format({'이용금액': '{:,.0f}원'}))
-            st.error("위 건은 업무 시간 외 부정사용 의심 건으로 분류되었습니다. 담당자 소명이 필요합니다.")
+        # A. 상단 요약 지표
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("총 분석 건수", f"{len(df)}건")
+        m2.metric("위험(High) 건수", f"{len(df[df['risk_score'] >= 70])}건", delta_color="inverse")
+        m3.metric("주의(Mid) 건수", f"{len(df[(df['risk_score'] < 70) & (df['risk_score'] >= 40)])}건")
+        m4.metric("분할결제 의심", f"{len(split_cases)}건")
+
+        st.divider()
+
+        # B. 핵심 리스크 리스트 (데이터 에디터)
+        st.subheader("🚨 정밀 검토 및 소명 요청 대상")
+        target_display = df[df['risk_score'] >= 40].sort_values(by='risk_score', ascending=False)
         
-        if not holiday_df.empty:
-            st.markdown(f"### 📅 휴일 사용 내역 ({len(holiday_df)}건)")
-            holiday_display = holiday_df[[f_map['날짜'], f_map['시간'], f_map['가맹점'], f_map['금액'], f_map['사용자']]].copy()
-            holiday_display['위반내용'] = "📅휴일 사용"
-            holiday_display.columns = ['거래일자', '승인시간', '가맹점명', '이용금액', '사용자', '위반내용']
-            holiday_display['거래일자'] = holiday_display['거래일자'].dt.strftime('%Y-%m-%d')
-            st.table(holiday_display.style.format({'이용금액': '{:,.0f}원'}))
+        st.data_editor(
+            target_display[['risk_score', 'violation_type', '사용자', '가맹점명', '이용금액', '승인일시']],
+            column_config={
+                "risk_score": st.column_config.ProgressColumn("위험 점수", min_value=0, max_value=100, format="%d"),
+                "violation_type": "위반 사유",
+                "이용금액": st.column_config.NumberColumn("금액", format="%d원")
+            },
+            use_container_width=True,
+            hide_index=True,
+            key="audit_editor"
+        )
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        # C. 추가 분석: 분할 결제 의심 상세
+        if not split_cases.empty:
+            with st.expander("🔗 분할 결제(쪼개기) 의심 상세 내역"):
+                st.write("동일 가맹점에서 짧은 시간 내에 연속 결제된 내역입니다.")
+                st.table(split_cases[['사용자', '가맹점명', '이용금액', '승인일시', 'time_diff']])
 
-        # 이후 통계 및 그래프 표시
-        m1, m2 = st.columns(2)
-        m1.metric("총 집행 금액", f"{df[f_map['금액']].sum():,.0f}원")
-        m2.metric("전체 거래 건수", f"{len(df)}건")
-
-        daily = df.groupby(f_map['날짜'])[f_map['금액']].sum().reset_index()
-        fig = go.Figure(go.Scatter(x=daily[f_map['날짜']], y=daily[f_map['금액']], line=dict(color='#FFD700', width=3)))
-        fig.update_layout(title="10월 지출 흐름 분석", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="white"))
-        st.plotly_chart(fig, use_container_width=True)
+        # D. 오프라인 프로세스 연결 (리포트 내보내기)
+        st.divider()
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            csv = target_display.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 소명 요청용 리스트 다운로드 (CSV)",
+                data=csv,
+                file_name=f"audit_request_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime='text/csv',
+            )
+        with col_btn2:
+            if st.button("📧 선택 항목 사용자에게 소명 메일 발송 (시뮬레이션)"):
+                st.success("해당 실무자들에게 시스템 소명 요청 알림이 발송되었습니다.")
 
     except Exception as e:
-        st.error(f"⚠️ 데이터 처리 중 오류 발생: {e}")
+        st.error(f"데이터 분석 중 오류가 발생했습니다. 컬럼명을 확인해주세요. 오류: {e}")
+else:
+    # 파일 업로드 전 가이드 화면
+    st.info("상단에 법인카드 지출 내역 파일을 업로드하면 AI 분석이 시작됩니다.")
