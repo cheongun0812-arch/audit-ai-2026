@@ -3,21 +3,27 @@ import pandas as pd
 from datetime import datetime
 
 # =========================================================
-# 0) PAGE CONFIG
+# 0) BUILD INFO
+# =========================================================
+BUILD = "v2.1"   # ✅ 여기만 바꾸면 타이틀 우측/배지 모두 같이 바뀜
+
+# =========================================================
+# 1) PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
 
 # =========================================================
-# 1) CSS (통합 + 충돌 최소 + 복원버튼/라인/톤업까지)
-#    - (핵심) 사이드바 접힘/복원 컨트롤(<< / >>) 항상 보이게 고정
-#    - 구분선은 "박스"가 아니라 얇은 라인으로
-#    - 업로더 Browse files 버튼 대비 강화
+# 2) CSS (통합)
+#   - 빌드번호 배지(좌상단) + 타이틀 오른쪽 빌드박스
+#   - 업로더/셀렉트 “블러/opacity” 제거
+#   - Browse files / 시트 선택 텍스트 기본 선명화
+#   - 사이드바 접기/복원 버튼(<< / >>) 항상 표시 유지
 # =========================================================
 st.markdown(
-    """
+    f"""
 <style>
-:root{
+:root{{
   --bg:#0B0D10;
   --panel:#12151B;
   --panel2:#0E1117;
@@ -27,44 +33,39 @@ st.markdown(
   --muted:#B9C2D6;
   --muted2:#8791A6;
   --gold:#D6B25E;
-  --gold2:#BFA04D;
   --shadow: 0 10px 24px rgba(0,0,0,.35);
-}
+}}
 
-/* ===== Base ===== */
-.stApp{
+.stApp{{
   background:
     radial-gradient(1200px 600px at 20% 0%, rgba(214,178,94,.08), transparent 60%),
     radial-gradient(1000px 600px at 90% 10%, rgba(90,132,255,.08), transparent 55%),
     var(--bg);
   color: var(--text);
-}
-h1,h2,h3,h4{ color: var(--text) !important; }
-hr{ border-top: 1px solid var(--border) !important; }
+}}
+h1,h2,h3,h4{{ color: var(--text) !important; }}
+hr{{ border-top: 1px solid var(--border) !important; }}
 
 /* ===== 상단 여백 ===== */
 header[data-testid="stHeader"],
 div[data-testid="stToolbar"],
 div[data-testid="stDecoration"],
-div[data-testid="stStatusWidget"]{
+div[data-testid="stStatusWidget"]{{
   height: 0px !important;
   min-height: 0px !important;
   display: none !important;
-}
-div.block-container{
-  padding-top: 10px !important;
-}
+}}
+div.block-container{{ padding-top: 10px !important; }}
 
 /* =========================================================
-   ✅ (중요) 사이드바 접힘/복원 버튼(<< / >>) 항상 보이게
-   - Streamlit 버전별로 testid가 다를 수 있어 여러 후보를 함께 처리
+   ✅ 사이드바 접힘/복원 버튼(<< / >>) 항상 보이게
    ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
 button[data-testid="stSidebarCollapsedControl"],
 [data-testid="stSidebarCollapseButton"],
-button[data-testid="stSidebarCollapseButton"]{
+button[data-testid="stSidebarCollapseButton"]{{
   position: fixed !important;
   top: 12px !important;
   left: 12px !important;
@@ -72,226 +73,230 @@ button[data-testid="stSidebarCollapseButton"]{
   opacity: 1 !important;
   visibility: visible !important;
   display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-/* 버튼 자체 스타일 */
+}}
 [data-testid="collapsedControl"] button,
 button[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"] button,
 button[data-testid="stSidebarCollapsedControl"],
 [data-testid="stSidebarCollapseButton"],
-button[data-testid="stSidebarCollapseButton"]{
+button[data-testid="stSidebarCollapseButton"]{{
   background: rgba(214,178,94,.18) !important;
   border: 1px solid rgba(214,178,94,.55) !important;
   border-radius: 12px !important;
   width: 38px !important;
   height: 38px !important;
   box-shadow: 0 8px 18px rgba(0,0,0,.35) !important;
-}
-
-/* 아이콘(chevron) 색 보장 */
+}}
 [data-testid="collapsedControl"] svg,
 button[data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapsedControl"] svg,
 button[data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="stSidebarCollapseButton"] svg,
-button[data-testid="stSidebarCollapseButton"] svg{
+button[data-testid="stSidebarCollapseButton"] svg{{
   fill: var(--text) !important;
   stroke: var(--text) !important;
   opacity: 1 !important;
-}
+}}
 
 /* ===== Sidebar ===== */
-[data-testid="stSidebar"]{
+[data-testid="stSidebar"]{{
   background: linear-gradient(180deg, #0E1116 0%, #0A0C10 100%) !important;
   border-right: 1px solid var(--border) !important;
-}
-[data-testid="stSidebar"] *{
+}}
+[data-testid="stSidebar"] *{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
+}}
 [data-testid="stSidebar"] small,
 [data-testid="stSidebar"] .stCaption,
-[data-testid="stSidebar"] .stMarkdown p{
+[data-testid="stSidebar"] .stMarkdown p{{
   color: var(--muted) !important;
   -webkit-text-fill-color: var(--muted) !important;
-}
+}}
 
 /* ===== Hero ===== */
-.hero{
+.hero{{
   background: linear-gradient(135deg, rgba(214,178,94,.15) 0%, rgba(214,178,94,.06) 30%, rgba(255,255,255,.03) 100%);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px 22px;
   box-shadow: var(--shadow);
   margin-bottom: 12px;
-}
-.hero-top{ display:flex; align-items:center; gap:10px; }
-.badge{
+}}
+.hero-row{{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between; /* ✅ 우측 빌드박스 자리 */
+  gap: 14px;
+}}
+.hero-left{{ display:flex; align-items:center; gap:10px; }}
+.badge{{
   display:inline-flex; align-items:center; justify-content:center;
   width: 36px; height: 36px; border-radius: 12px;
   background: rgba(214,178,94,.18);
   border: 1px solid rgba(214,178,94,.35);
   color: var(--gold);
   font-weight: 900;
-}
-.hero-title{
-  font-size: 26px;
+}}
+.hero-title{{ font-size: 26px; font-weight: 900; letter-spacing: .3px; margin: 0; }}
+.hero-sub{{ margin-top: 6px; color: var(--muted); font-size: 13px; }}
+
+/* ✅ 타이틀 오른쪽 빌드번호 박스 */
+.build-box{{
+  align-self: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(214,178,94,.14);
+  border: 1px solid rgba(214,178,94,.45);
+  color: var(--gold);
   font-weight: 900;
-  letter-spacing: .3px;
-  margin: 0;
-}
-.hero-sub{
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 13px;
-}
+  font-size: 12px;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}}
 
 /* ===== Panels ===== */
-.panel{
+.panel{{
   background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.015) 100%), var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
   box-shadow: var(--shadow);
   margin-bottom: 10px;
-}
-.panel-title{
-  font-weight: 900;
-  color: var(--text);
-  margin: 0 0 10px 0;
-  font-size: 14px;
-  letter-spacing: .2px;
-}
-.panel-sub{
-  color: var(--muted2);
-  font-size: 12px;
-  margin: -6px 0 10px 0;
-}
+}}
+.panel-title{{ font-weight: 900; margin: 0 0 10px 0; font-size: 14px; letter-spacing: .2px; }}
+.panel-sub{{ color: var(--muted2); font-size: 12px; margin: -6px 0 10px 0; }}
 
-/* =========================================================
-   ✅ (중요) “박스처럼 보이는 구분” 제거 → 얇은 라인(divider) 전용
-   ========================================================= */
-.soft-line{
+/* ===== Divider (얇은 라인) ===== */
+.soft-line{{
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(214,178,94,.35), transparent);
-  border: none;
-  margin: 14px 0 14px 0;
-}
+  margin: 14px 0;
+}}
 
-/* ===== Metrics ===== */
-[data-testid="stMetricValue"]{ color: var(--text) !important; font-weight: 900 !important; }
-[data-testid="stMetricLabel"]{ color: var(--gold) !important; font-weight: 800 !important; }
-
-/* ===== Tables ===== */
-[data-testid="stDataFrame"], [data-testid="stDataEditor"]{
-  border: 1px solid var(--border) !important;
-  border-radius: 14px !important;
-  overflow: hidden !important;
-  box-shadow: 0 8px 18px rgba(0,0,0,.25);
-}
-
-/* ===== Alerts ===== */
-div[data-testid="stAlert"]{
-  border-radius: 14px !important;
-  border: 1px solid var(--border) !important;
-  background: #0F131A !important;
-}
-div[data-testid="stAlert"] *{ color: var(--text) !important; }
-div[data-testid="stAlert"] a{ color: var(--gold) !important; }
+/* =========================================================
+   ✅ 핵심: "블러/흐림" 제거 (기본 선명 표시)
+   - 업로더/셀렉트/버튼 내부에 filter/opacity가 걸리는 경우 강제 해제
+   ========================================================= */
+[data-testid="stFileUploader"] *,
+div[data-baseweb="select"] *,
+div[role="listbox"] *,
+button * {{
+  filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}}
 
 /* ===== Inputs ===== */
-div[data-baseweb="select"] > div{
+div[data-baseweb="select"] > div{{
   background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
-}
+}}
 div[data-baseweb="select"] span,
-div[data-baseweb="select"] input{
+div[data-baseweb="select"] input{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
-input, textarea{
+  opacity: 1 !important;
+}}
+div[data-baseweb="select"] [aria-selected="true"] *{{
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  opacity: 1 !important;
+}}
+
+input, textarea{{
   background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
-input::placeholder, textarea::placeholder{
+}}
+input::placeholder, textarea::placeholder{{
   color: var(--muted2) !important;
   -webkit-text-fill-color: var(--muted2) !important;
-}
-div[role="listbox"]{
+}}
+
+/* dropdown listbox */
+div[role="listbox"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
   box-shadow: 0 18px 30px rgba(0,0,0,.45) !important;
-}
-div[role="listbox"] span{
+}}
+div[role="listbox"] span{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
+  opacity: 1 !important;
+}}
 
-/* ===== FileUploader (드래그존 + 버튼 + 파일카드) ===== */
-[data-testid="stFileUploader"]{
+/* ===== FileUploader ===== */
+[data-testid="stFileUploader"]{{
   background: var(--panel2) !important;
   border: 1px dashed rgba(214,178,94,.55) !important;
   border-radius: 14px !important;
   padding: 12px !important;
-}
-[data-testid="stFileUploader"] *{
+}}
+[data-testid="stFileUploader"] *{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
+}}
 [data-testid="stFileUploader"] small,
-[data-testid="stFileUploader"] label{
+[data-testid="stFileUploader"] label{{
   color: var(--muted) !important;
   -webkit-text-fill-color: var(--muted) !important;
-}
+  opacity: 1 !important;
+}}
 
-/* ✅ Browse files 버튼: 글씨 안 보이는 문제 해결(대비 강화) */
-[data-testid="stFileUploader"] button{
+/* ✅ Browse files 버튼: 기본 선명 텍스트 */
+[data-testid="stFileUploader"] button{{
   border-radius: 12px !important;
   border: 1px solid rgba(214,178,94,.75) !important;
   background: rgba(214,178,94,.22) !important;
-  color: var(--text) !important;
-}
-[data-testid="stFileUploader"] button *{
+}}
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] button *{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
+  opacity: 1 !important;
+}}
 
-/* 업로드된 파일 카드 */
+/* 업로드된 파일 카드 텍스트 선명 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
-div[data-testid="stFileUploaderFileName"] *{
+div[data-testid="stFileUploaderFileName"] *{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
-}
-div[data-testid="stFileUploaderFile"]{
+  opacity: 1 !important;
+  filter: none !important;
+}}
+div[data-testid="stFileUploaderFile"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
-}
-div[data-testid="stFileUploaderFile"] svg{
-  fill: var(--muted) !important;
-}
+}}
+
+/* ===== Tables ===== */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"]{{
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.25);
+}}
 
 /* ===== Buttons ===== */
-.stDownloadButton button, .stButton button{
+.stDownloadButton button, .stButton button{{
   border-radius: 12px !important;
   border: 1px solid rgba(214,178,94,.55) !important;
-}
-.stDownloadButton button:hover, .stButton button:hover{
+}}
+.stDownloadButton button:hover, .stButton button:hover{{
   border: 1px solid rgba(214,178,94,.85) !important;
-}
+}}
 </style>
 
-<!-- ✅ 로드 확인 배지(HTML) -->
+<!-- ✅ 좌상단 빌드 배지(확인용) -->
 <div style="
  position:fixed; top:10px; left:10px; z-index:999999;
  padding:6px 10px; border-radius:10px;
@@ -299,7 +304,7 @@ div[data-testid="stFileUploaderFile"] svg{
  background:rgba(214,178,94,.18);
  border:1px solid rgba(214,178,94,.55);
  color:#D6B25E;">
- CSS LOADED • UI FIX v2
+ CSS LOADED • UI FIX {BUILD}
 </div>
 """,
     unsafe_allow_html=True
@@ -307,7 +312,7 @@ div[data-testid="stFileUploaderFile"] svg{
 
 
 # =========================================================
-# 2) UI helpers
+# 3) UI helpers
 # =========================================================
 def panel_open(title: str, subtitle: str | None = None):
     st.markdown('<div class="panel">', unsafe_allow_html=True)
@@ -323,7 +328,7 @@ def soft_divider():
 
 
 # =========================================================
-# 3) Audit Engine
+# 4) Audit Engine
 # =========================================================
 class AuditSystem:
     STANDARD_COLS = {
@@ -431,17 +436,20 @@ class AuditSystem:
 
 
 # =========================================================
-# 4) HERO
+# 5) HERO (빌드번호 우측 박스 포함)
 # =========================================================
 st.markdown(
-    """
+    f"""
 <div class="hero">
-  <div class="hero-top">
-    <div class="badge">🛡️</div>
-    <div>
-      <div class="hero-title">2026 AUDIT AI PORTAL</div>
-      <div class="hero-sub">통합 감사 데이터 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
+  <div class="hero-row">
+    <div class="hero-left">
+      <div class="badge">🛡️</div>
+      <div>
+        <div class="hero-title">2026 AUDIT AI PORTAL</div>
+        <div class="hero-sub">통합 감사 데이터 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
+      </div>
     </div>
+    <div class="build-box">BUILD {BUILD}</div>
   </div>
 </div>
 """,
@@ -450,8 +458,9 @@ st.markdown(
 
 soft_divider()
 
+
 # =========================================================
-# 5) SIDEBAR
+# 6) SIDEBAR
 # =========================================================
 with st.sidebar:
     st.markdown("## ⚙️ 감사 기준 설정")
@@ -485,7 +494,7 @@ with st.sidebar:
 
 
 # =========================================================
-# 6) Upload
+# 7) Upload
 # =========================================================
 panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 자동으로 시트 선택/분석이 진행됩니다.")
 uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
@@ -493,21 +502,22 @@ panel_close()
 
 if not uploaded_file:
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일을 업로드하면 분석이 시작됩니다. (파일명/선택값은 선명하게 표시됩니다.)")
+    st.info("파일을 업로드하면 분석이 시작됩니다. (기본 상태에서 텍스트는 선명하게 표시됩니다.)")
     panel_close()
     st.stop()
 
 soft_divider()
 
+
 # =========================================================
-# 7) Load + Analyze
+# 8) Load + Analyze
 # =========================================================
 try:
     if uploaded_file.name.lower().endswith(".xlsx"):
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_names = excel_file.sheet_names
 
-        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
+        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. (선택값이 흐려지지 않도록 기본 선명 표시)")
         selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("📝 데이터가 있는 시트를 선택하세요", sheet_names)
         panel_close()
 
@@ -554,8 +564,9 @@ except Exception as e:
 
 soft_divider()
 
+
 # =========================================================
-# 8) Dashboard
+# 9) Dashboard
 # =========================================================
 panel_open("③ 감사 요약 대시보드", "핵심 지표를 한 눈에 확인합니다.")
 total_cnt = len(df_analyzed)
@@ -576,8 +587,9 @@ panel_close()
 
 soft_divider()
 
+
 # =========================================================
-# 9) Tables
+# 10) Tables
 # =========================================================
 rule_cols = features["rule_cols"]
 user_col = features["user_col"]
@@ -627,8 +639,9 @@ panel_close()
 
 soft_divider()
 
+
 # =========================================================
-# 10) Charts (no matplotlib)
+# 11) Charts (no matplotlib)
 # =========================================================
 panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
 chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
@@ -665,8 +678,9 @@ panel_close()
 
 soft_divider()
 
+
 # =========================================================
-# 11) Download
+# 12) Download
 # =========================================================
 panel_open("⑥ 보고서 다운로드", "필터 적용/미적용 범위를 선택하여 CSV로 내려받습니다.")
 download_mode = st.selectbox(
