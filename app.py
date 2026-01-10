@@ -16,90 +16,141 @@ st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 st.markdown(
     """
 <style>
-/* ===== 전체 기본 ===== */
-.stApp { background-color: #0A0A0B; color: #FFFFFF; }
+/* =========================================================
+   0) GLOBAL BASE
+   ========================================================= */
+.stApp {
+  background-color: #0A0A0B;
+  color: #FFFFFF;
+}
 
+h1, h2, h3, h4 { color: #FFFFFF !important; }
+hr { border-top: 1px solid #2C2C2E !important; }
+
+
+/* =========================================================
+   1) HEADER
+   ========================================================= */
 .header-box {
   background-color: #161618;
-  padding: 22px 22px;
+  padding: 22px;
   border-radius: 14px;
   border: 1px solid #2C2C2E;
   margin-bottom: 22px;
   text-align: center;
 }
-.main-title { font-size: 44px; font-weight: 900; color: #FFD700; margin: 0; }
-.sub-title  { color:#C9B458; font-size:16px; margin: 8px 0 0 0; }
+.main-title {
+  font-size: 44px;
+  font-weight: 900;
+  color: #FFD700;
+  margin: 0;
+}
+.sub-title {
+  color: #C9B458;
+  font-size: 16px;
+  margin: 8px 0 0 0;
+}
 
+
+/* =========================================================
+   2) SIDEBAR
+   ========================================================= */
 [data-testid="stSidebar"] {
   background-color: #111112 !important;
   border-right: 1px solid #2C2C2E;
 }
 
-[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 900 !important; font-size: 30px !important; }
-[data-testid="stMetricLabel"] { color: #FFD700 !important; font-weight: 800 !important; }
 
-/* ===== 테이블/에디터 ===== */
-[data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+/* =========================================================
+   3) METRICS
+   ========================================================= */
+[data-testid="stMetricValue"] {
+  color: #FFFFFF !important;
+  font-weight: 900 !important;
+  font-size: 30px !important;
+}
+[data-testid="stMetricLabel"] {
+  color: #FFD700 !important;
+  font-weight: 800 !important;
+}
+
+
+/* =========================================================
+   4) TABLES / EDITOR
+   ========================================================= */
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {
   border: 1px solid #2C2C2E !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
 
-/* ===== Alert 박스(흰 박스 문제 방지) ===== */
+
+/* =========================================================
+   5) ALERT BOXES (st.info / st.error / st.warning / st.success)
+   - 흰 박스 + 흰 글씨 문제 방지
+   ========================================================= */
 div[data-testid="stAlert"] {
   border-radius: 12px !important;
   border: 1px solid #2C2C2E !important;
   background: #151517 !important;
 }
-div[data-testid="stAlert"] * { color: #FFFFFF !important; }
-div[data-testid="stAlert"] a { color: #FFD700 !important; }
-
-hr { border-top: 1px solid #2C2C2E !important; }
-h1, h2, h3, h4 { color: #FFFFFF !important; }
+div[data-testid="stAlert"] * {
+  color: #FFFFFF !important;
+}
+div[data-testid="stAlert"] a {
+  color: #FFD700 !important;
+}
 
 
 /* =========================================================
-   ✅ 입력 UI 가독성 핵심 규칙
-   - 메인 영역(section.main): "밝은 입력 박스 + 진한 글자"
-   - 사이드바: "다크 입력 박스 + 흰 글자"
+   6) INPUT UI READABILITY CORE
+   - 원칙: 메인(section.main)은 "밝은 입력 UI + 진한 글자"
+          사이드바는 "다크 입력 UI + 흰 글자"
+   - 절대 금지: [data-testid="..."] * { color: white } 같은 전역 강제
    ========================================================= */
 
-/* ---------- (A) 메인 영역: Selectbox / TextArea / TextInput / NumberInput 등 ---------- */
-/* Selectbox: 선택된 값(현재값) 텍스트를 검정으로 강제 */
+/* -------------------------
+   6-A) MAIN: Selectbox
+   - 선택된 값(현재 값)이 흰색으로 보이는 문제 해결
+   ------------------------- */
 section.main div[data-baseweb="select"] span,
 section.main div[data-baseweb="select"] input {
   color: #111111 !important;
   -webkit-text-fill-color: #111111 !important;
 }
-/* Selectbox: 선택 영역 배경 밝게 */
 section.main div[data-baseweb="select"] > div {
   background-color: #FFFFFF !important;
   border: 1px solid #D0D0D0 !important;
+  border-radius: 10px !important;
 }
-/* Dropdown listbox 텍스트도 검정 보장 */
+/* 펼친 드롭다운 목록(listbox) */
 div[role="listbox"] span {
   color: #111111 !important;
   -webkit-text-fill-color: #111111 !important;
 }
 
-/* TextArea / TextInput / NumberInput: 입력 텍스트 검정 + 배경 흰색 */
+/* -------------------------
+   6-B) MAIN: TextInput / NumberInput / TextArea
+   - 입력값/선택값 대비 강화(신뢰도↑)
+   ------------------------- */
 section.main textarea,
 section.main input {
   color: #111111 !important;
   -webkit-text-fill-color: #111111 !important;
   background-color: #FFFFFF !important;
   border: 1px solid #D0D0D0 !important;
+  border-radius: 10px !important;
 }
-
-/* placeholder는 회색으로(신뢰도↑: 입력 전/후 구분 명확) */
 section.main textarea::placeholder,
 section.main input::placeholder {
   color: #777777 !important;
   -webkit-text-fill-color: #777777 !important;
 }
 
-/* ---------- (B) 사이드바: Selectbox / TextArea / TextInput / NumberInput 등 ---------- */
-/* Selectbox: 사이드바는 다크 배경 → 흰 글자 */
+/* -------------------------
+   6-C) SIDEBAR: Selectbox
+   ------------------------- */
 [data-testid="stSidebar"] div[data-baseweb="select"] span,
 [data-testid="stSidebar"] div[data-baseweb="select"] input {
   color: #FFFFFF !important;
@@ -108,20 +159,73 @@ section.main input::placeholder {
 [data-testid="stSidebar"] div[data-baseweb="select"] > div {
   background-color: #111112 !important;
   border: 1px solid #2C2C2E !important;
+  border-radius: 10px !important;
 }
 
-/* TextArea / TextInput / NumberInput: 사이드바는 흰 글자 + 다크 배경 */
+/* -------------------------
+   6-D) SIDEBAR: TextInput / NumberInput / TextArea
+   ------------------------- */
 [data-testid="stSidebar"] textarea,
 [data-testid="stSidebar"] input {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
   background-color: #111112 !important;
   border: 1px solid #2C2C2E !important;
+  border-radius: 10px !important;
 }
 [data-testid="stSidebar"] textarea::placeholder,
 [data-testid="stSidebar"] input::placeholder {
   color: #9A9A9A !important;
   -webkit-text-fill-color: #9A9A9A !important;
+}
+
+
+/* =========================================================
+   7) FILE UPLOADER (Browse files)
+   - 메인: 흰 배경 + 검정 텍스트
+   - 사이드바: 다크 배경 + 흰 텍스트
+   ========================================================= */
+
+/* ----- 7-A) MAIN: FileUploader ----- */
+section.main [data-testid="stFileUploader"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #D0D0D0 !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+}
+/* 업로더 내부 텍스트(파일명/상태/안내문구 등): 검정 */
+section.main [data-testid="stFileUploader"] * {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+}
+/* Browse files 버튼 */
+section.main [data-testid="stFileUploader"] button {
+  color: #111111 !important;
+  border: 1px solid #D0D0D0 !important;
+  border-radius: 10px !important;
+}
+/* 안내/보조문구는 진회색 */
+section.main [data-testid="stFileUploader"] small,
+section.main [data-testid="stFileUploader"] label {
+  color: #555555 !important;
+  -webkit-text-fill-color: #555555 !important;
+}
+
+/* ----- 7-B) SIDEBAR: FileUploader ----- */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+  background-color: #111112 !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] * {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+  color: #FFFFFF !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 10px !important;
 }
 </style>
 """,
@@ -491,3 +595,4 @@ st.download_button(
 )
 
 st.caption("※ 점수/키워드/심야시간 설정은 사이드바에서 조정 가능합니다.")
+
