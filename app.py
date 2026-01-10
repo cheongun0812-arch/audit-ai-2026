@@ -3,95 +3,108 @@ import pandas as pd
 from datetime import datetime
 
 # =========================================================
-# 1) 페이지 설정
+# 0) PAGE CONFIG (항상 최상단)
 # =========================================================
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
-
 # =========================================================
-# 2) 고급 UI CSS (통일감/품격/가독성)
-#   - 전체 다크 톤 통일
-#   - 카드(Panel) 레이아웃
-#   - 입력/선택/업로더: 다크 배경 + 밝은 텍스트로 일관성 유지
-#   - Dropdown(listbox)까지 함께 스타일링
+# 1) CSS + LOADED BADGE (HTML로 강제 표시)
+#    - pseudo-element(::before) 대신 HTML 배지로 "무조건" 보이게 함
 # =========================================================
 st.markdown(
     """
 <style>
-/* ===== Base ===== */
 :root{
-  --bg: #0B0D10;
-  --panel: #12151B;
-  --panel2:#0F1217;
+  --bg:#0B0D10;
+  --panel:#12151B;
+  --panel2:#0E1117;
   --border:#232836;
   --border2:#2D3446;
   --text:#EDEFF4;
-  --muted:#AEB6C6;
+  --muted:#B9C2D6;
   --muted2:#8791A6;
   --gold:#D6B25E;
-  --gold2:#BFA04D;
-  --danger:#2B1416;
-  --dangerBorder:#4A2326;
-  --success:#14271C;
-  --successBorder:#284A37;
   --shadow: 0 10px 24px rgba(0,0,0,.35);
 }
 
+/* ===== Base ===== */
 .stApp{
-  background: radial-gradient(1200px 600px at 20% 0%, rgba(214,178,94,.08), transparent 60%),
-              radial-gradient(1000px 600px at 90% 10%, rgba(90,132,255,.08), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(1200px 600px at 20% 0%, rgba(214,178,94,.08), transparent 60%),
+    radial-gradient(1000px 600px at 90% 10%, rgba(90,132,255,.08), transparent 55%),
+    var(--bg);
   color: var(--text);
+}
+h1,h2,h3,h4{ color: var(--text) !important; }
+hr{ border-top: 1px solid var(--border) !important; }
+
+/* ===== TOP BAR / HEADER / TOOLBAR: 여백 축소(버전별 후보를 넓게 커버) ===== */
+header[data-testid="stHeader"],
+div[data-testid="stToolbar"],
+div[data-testid="stDecoration"],
+div[data-testid="stStatusWidget"]{
+  height: 0px !important;
+  min-height: 0px !important;
+  display: none !important;
+}
+div.block-container{
+  padding-top: 10px !important;   /* 상단 간격: 8~16 사이 취향 조정 */
 }
 
 /* ===== Sidebar ===== */
 [data-testid="stSidebar"]{
   background: linear-gradient(180deg, #0E1116 0%, #0A0C10 100%) !important;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border) !important;
 }
-[data-testid="stSidebar"] .stMarkdown, 
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span{
+[data-testid="stSidebar"] *{
   color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+[data-testid="stSidebar"] small,
+[data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] .stMarkdown p{
+  color: var(--muted) !important;
+  -webkit-text-fill-color: var(--muted) !important;
 }
 
-/* ===== Typography ===== */
-h1,h2,h3,h4{ color: var(--text) !important; }
-hr{ border-top: 1px solid var(--border) !important; }
-
-/* ===== Header ===== */
+/* ===== Hero (프로그램 간판) ===== */
 .hero{
   background: linear-gradient(135deg, rgba(214,178,94,.15) 0%, rgba(214,178,94,.06) 30%, rgba(255,255,255,.03) 100%);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 22px 24px;
+  padding: 18px 22px;
   box-shadow: var(--shadow);
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
-.hero-top{
-  display:flex; align-items:center; gap:10px;
-  font-weight:900; letter-spacing:.2px;
-}
+.hero-top{ display:flex; align-items:center; gap:10px; }
 .badge{
   display:inline-flex; align-items:center; justify-content:center;
-  width:30px; height:30px; border-radius:10px;
+  width: 36px; height: 36px; border-radius: 12px;
   background: rgba(214,178,94,.18);
   border: 1px solid rgba(214,178,94,.35);
   color: var(--gold);
-  font-weight:900;
+  font-weight: 900;
 }
-.hero-title{ font-size: 18px; color: var(--text); margin:0; }
-.hero-sub{ margin-top:6px; color: var(--muted); font-size: 13px; }
+.hero-title{
+  font-size: 26px;  /* ✅ 타이틀 크게 */
+  font-weight: 900;
+  letter-spacing: .3px;
+  margin: 0;
+}
+.hero-sub{
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
 
-/* ===== Panels (Cards) ===== */
+/* ===== Panels ===== */
 .panel{
   background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.015) 100%), var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 16px 16px;
+  padding: 16px;
   box-shadow: var(--shadow);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .panel-title{
   font-weight: 900;
@@ -106,11 +119,11 @@ hr{ border-top: 1px solid var(--border) !important; }
   margin: -6px 0 10px 0;
 }
 
-/* ===== Metrics polish ===== */
+/* ===== Metrics ===== */
 [data-testid="stMetricValue"]{ color: var(--text) !important; font-weight: 900 !important; }
 [data-testid="stMetricLabel"]{ color: var(--gold) !important; font-weight: 800 !important; }
 
-/* ===== Tables / Data Editor ===== */
+/* ===== Tables ===== */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"]{
   border: 1px solid var(--border) !important;
   border-radius: 14px !important;
@@ -122,40 +135,37 @@ hr{ border-top: 1px solid var(--border) !important; }
 div[data-testid="stAlert"]{
   border-radius: 14px !important;
   border: 1px solid var(--border) !important;
-  background: var(--panel2) !important;
+  background: #0F131A !important;
 }
 div[data-testid="stAlert"] *{ color: var(--text) !important; }
 div[data-testid="stAlert"] a{ color: var(--gold) !important; }
 
-/* ===== Inputs (Select/Text/Number/TextArea) — Dark & crisp ===== */
-/* Baseweb select container */
+/* ===== Inputs (Select / Text / Number / TextArea) ===== */
 div[data-baseweb="select"] > div{
-  background-color: #0E1117 !important;
+  background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
 }
-/* Selected value text */
 div[data-baseweb="select"] span,
 div[data-baseweb="select"] input{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
 }
-/* Text inputs / textareas */
 input, textarea{
-  background-color: #0E1117 !important;
+  background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
 }
-textarea::placeholder, input::placeholder{
+input::placeholder, textarea::placeholder{
   color: var(--muted2) !important;
   -webkit-text-fill-color: var(--muted2) !important;
 }
 
-/* Dropdown listbox (opened menu) */
+/* dropdown listbox */
 div[role="listbox"]{
-  background: #0E1117 !important;
+  background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 12px !important;
   box-shadow: 0 18px 30px rgba(0,0,0,.45) !important;
@@ -165,10 +175,10 @@ div[role="listbox"] span{
   -webkit-text-fill-color: var(--text) !important;
 }
 
-/* ===== FileUploader (Browse files) + Selected file card ===== */
+/* ===== FileUploader: 드래그존 + Browse files + 선택 파일 카드 ===== */
 [data-testid="stFileUploader"]{
-  background: #0E1117 !important;
-  border: 1px dashed rgba(214,178,94,.35) !important;
+  background: var(--panel2) !important;
+  border: 1px dashed rgba(214,178,94,.55) !important;
   border-radius: 14px !important;
   padding: 12px !important;
 }
@@ -183,56 +193,64 @@ div[role="listbox"] span{
 }
 [data-testid="stFileUploader"] button{
   border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.45) !important;
+  border: 1px solid rgba(214,178,94,.65) !important;
 }
 
-/* Selected file row/card */
-div[data-testid="stFileUploaderFile"]{
-  background: #0E1117 !important;
-  border: 1px solid var(--border2) !important;
-  border-radius: 12px !important;
-}
+/* 업로드된 파일명/정보(카드) */
+div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
+div[data-testid="stFileUploaderFileName"],
 div[data-testid="stFileUploaderFileName"] *{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
+}
+div[data-testid="stFileUploaderFile"]{
+  background: var(--panel2) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 12px !important;
 }
 div[data-testid="stFileUploaderFile"] svg{
   fill: var(--muted) !important;
 }
 
-/* ===== Buttons / download ===== */
+/* ===== Buttons ===== */
 .stDownloadButton button, .stButton button{
   border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.45) !important;
+  border: 1px solid rgba(214,178,94,.55) !important;
 }
 .stDownloadButton button:hover, .stButton button:hover{
-  border: 1px solid rgba(214,178,94,.75) !important;
+  border: 1px solid rgba(214,178,94,.85) !important;
 }
-
-/* ===== Spacing (Streamlit default padding tweak) ===== */
-.block-container{ padding-top: 18px !important; }
 </style>
+
+<!-- ✅ LOADED BADGE: HTML로 직접 표시 (안 보이면 이 코드가 실행되지 않은 것) -->
+<div style="
+ position:fixed; top:10px; left:10px; z-index:999999;
+ padding:6px 10px; border-radius:10px;
+ font-size:12px; font-weight:900; letter-spacing:.2px;
+ background:rgba(214,178,94,.18);
+ border:1px solid rgba(214,178,94,.55);
+ color:#D6B25E;">
+ CSS LOADED • UI FIX v2
+</div>
 """,
     unsafe_allow_html=True
 )
 
-
 # =========================================================
-# 3) 카드 래퍼(Panel) 헬퍼
+# 2) Panel helpers
 # =========================================================
 def panel_open(title: str, subtitle: str | None = None):
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown(f'<p class="panel-title">{title}</p>', unsafe_allow_html=True)
+    st.markdown(f'<div class="panel-title">{title}</div>', unsafe_allow_html=True)
     if subtitle:
-        st.markdown(f'<p class="panel-sub">{subtitle}</p>', unsafe_allow_html=True)
+        st.markdown(f'<div class="panel-sub">{subtitle}</div>', unsafe_allow_html=True)
 
 def panel_close():
-    st.markdown('</div>', unsafe_allow_html=True)
-
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 4) 감사 로직 엔진
+# 3) Audit Engine
 # =========================================================
 class AuditSystem:
     STANDARD_COLS = {
@@ -304,6 +322,7 @@ class AuditSystem:
         if len(kw) == 0:
             df["F_SUSPICIOUS"] = False
         else:
+            # 안전한 키워드 패턴 처리
             pattern = "|".join([pd.regex.escape(k) for k in kw])
             df["F_SUSPICIOUS"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
 
@@ -324,7 +343,7 @@ class AuditSystem:
             if row["F_HIGH"]:
                 reasons.append("💰고액")
             if row["F_SUSPICIOUS"]:
-                reasons.append("🔍위장의심(키워드)")
+                reasons.append("🔍키워드의심")
             return ", ".join(reasons)
 
         df["violation"] = df.apply(build_reasons, axis=1)
@@ -340,24 +359,25 @@ class AuditSystem:
 
 
 # =========================================================
-# 5) HERO
+# 4) HERO (간판)
 # =========================================================
 st.markdown(
     """
 <div class="hero">
   <div class="hero-top">
     <div class="badge">🛡️</div>
-    <div class="hero-title">2026 AUDIT AI PORTAL</div>
+    <div>
+      <div class="hero-title">2026 AUDIT AI PORTAL</div>
+      <div class="hero-sub">통합 감사 데이터 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
+    </div>
   </div>
-  <div class="hero-sub">통합 감사 데이터 분석 시스템 · Dignified UI Edition (일관된 다크톤/패널 구조/가독성 강화)</div>
 </div>
 """,
     unsafe_allow_html=True
 )
 
-
 # =========================================================
-# 6) Sidebar (정돈된 구성)
+# 5) SIDEBAR
 # =========================================================
 with st.sidebar:
     st.markdown("## ⚙️ 감사 기준 설정")
@@ -380,21 +400,18 @@ with st.sidebar:
     st.markdown("## 🧮 점수 가중치")
     w_night = st.number_input("심야 가중치", value=40, step=5, min_value=0, max_value=100)
     w_high = st.number_input("고액 가중치", value=30, step=5, min_value=0, max_value=100)
-    w_susp = st.number_input("위장의심(키워드) 가중치", value=30, step=5, min_value=0, max_value=100)
+    w_susp = st.number_input("키워드 의심 가중치", value=30, step=5, min_value=0, max_value=100)
 
     st.divider()
 
     st.markdown("## 🧰 출력/필터")
     min_score = st.slider("표시 최소 위험점수", 0, 100, 40, step=5)
 
-    st.info(
-        "필수 컬럼: **가맹점(상호/거래처)**, **금액**, **일시**\n\n"
-        "※ 사용자 컬럼이 없으면 **미지정**으로 표시됩니다."
-    )
+    st.info("필수 컬럼: **가맹점(상호/거래처)**, **금액**, **일시**\n\n※ 사용자 컬럼이 없으면 **미지정**으로 표시됩니다.")
 
 
 # =========================================================
-# 7) 업로드 Panel
+# 6) UPLOAD PANEL
 # =========================================================
 panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 자동으로 시트 선택/분석이 진행됩니다.")
 uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
@@ -402,26 +419,28 @@ panel_close()
 
 if not uploaded_file:
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일을 업로드하면 분석이 시작됩니다. (선택값/파일명은 화면에 또렷하게 표시되도록 이미 보정되어 있습니다.)")
+    st.info("파일을 업로드하면 분석이 시작됩니다. (파일명/선택값은 다크톤에서 선명하게 보이도록 설정되어 있습니다.)")
     panel_close()
     st.stop()
 
-
 # =========================================================
-# 8) 파일 로드 + 분석
+# 7) LOAD + ANALYZE
 # =========================================================
 try:
     if uploaded_file.name.lower().endswith(".xlsx"):
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_names = excel_file.sheet_names
 
-        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. 선택값이 흐리게 보이지 않도록 UI가 보정되어 있습니다.")
+        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
         selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("📝 데이터가 있는 시트를 선택하세요", sheet_names)
         panel_close()
 
         df_raw = excel_file.parse(selected_sheet)
     else:
-        df_raw = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+        try:
+            df_raw = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+        except Exception:
+            df_raw = pd.read_csv(uploaded_file)
 
     if df_raw is None or df_raw.empty:
         panel_open("오류", "파일이 비어 있거나 읽을 수 없습니다.")
@@ -457,9 +476,8 @@ except Exception as e:
     panel_close()
     st.stop()
 
-
 # =========================================================
-# 9) 요약 Panel
+# 8) DASHBOARD
 # =========================================================
 panel_open("③ 감사 요약 대시보드", "핵심 지표를 한 눈에 확인합니다.")
 total_cnt = len(df_analyzed)
@@ -478,9 +496,8 @@ with c4:
     st.metric("심야(룰)", f"{night_cnt:,}건")
 panel_close()
 
-
 # =========================================================
-# 10) 리스트 Panel (탭)
+# 9) TABLES (TABS)
 # =========================================================
 rule_cols = features["rule_cols"]
 user_col = features["user_col"]
@@ -528,9 +545,8 @@ with tab_susp:
     render_table(filtered_view(df_analyzed, "suspicious"))
 panel_close()
 
-
 # =========================================================
-# 11) 차트 Panel (설치 없이 Streamlit 기본 차트)
+# 10) CHARTS (NO MATPLOTLIB)
 # =========================================================
 panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
 chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
@@ -565,9 +581,8 @@ with r3:
     st.metric("🔍 키워드 의심", f"{int(df_analyzed['F_SUSPICIOUS'].sum()):,}건")
 panel_close()
 
-
 # =========================================================
-# 12) 다운로드 Panel
+# 11) DOWNLOAD
 # =========================================================
 panel_open("⑥ 보고서 다운로드", "필터 적용/미적용 범위를 선택하여 CSV로 내려받습니다.")
 download_mode = st.selectbox(
@@ -596,5 +611,5 @@ st.download_button(
     file_name=f"Audit_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
     mime="text/csv",
 )
-st.caption("※ 모든 UI 컴포넌트(선택값/입력값/파일명)는 다크톤에서 선명하게 표시되도록 통일 보정되어 있습니다.")
+st.caption("※ 상단 배지(CSS LOADED)가 보이지 않으면, 이 파일이 실행되고 있는지(app.py) 또는 CSS가 `st.stop()` 이전에 있는지 확인하세요.")
 panel_close()
