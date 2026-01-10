@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime
 
 # =========================================================
@@ -11,17 +9,11 @@ st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
 # =========================================================
 # 2) CSS (시인성 + 다크테마 + Alert 박스 다크화)
-#   - 전역 div/p/span 흰색 강제 제거
-#   - stAlert(Info/Warning/Error/Success) 다크 카드 스타일
-#   - 입력/에디터 텍스트 색 보장
 # =========================================================
 st.markdown(
     """
 <style>
-.stApp {
-  background-color: #0A0A0B;
-  color: #FFFFFF;
-}
+.stApp { background-color: #0A0A0B; color: #FFFFFF; }
 
 .header-box {
   background-color: #161618;
@@ -43,13 +35,11 @@ st.markdown(
 [data-testid="stMetricLabel"] { color: #FFD700 !important; font-weight: 800 !important; }
 
 /* 입력 요소 텍스트 */
-[data-testid="stSelectbox"] * ,
-[data-testid="stNumberInput"] * ,
-[data-testid="stSlider"] * ,
-[data-testid="stTextInput"] * ,
-[data-testid="stTextArea"] * {
-  color: #FFFFFF !important;
-}
+[data-testid="stSelectbox"] *,
+[data-testid="stNumberInput"] *,
+[data-testid="stSlider"] *,
+[data-testid="stTextInput"] *,
+[data-testid="stTextArea"] * { color: #FFFFFF !important; }
 
 /* 테이블/에디터 */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
@@ -64,13 +54,10 @@ div[data-testid="stAlert"] {
   border: 1px solid #2C2C2E !important;
   background: #151517 !important;
 }
-div[data-testid="stAlert"] * {
-  color: #FFFFFF !important;
-}
+div[data-testid="stAlert"] * { color: #FFFFFF !important; }
 div[data-testid="stAlert"] a { color: #FFD700 !important; }
 
 hr { border-top: 1px solid #2C2C2E !important; }
-
 h1, h2, h3, h4 { color: #FFFFFF !important; }
 </style>
 """,
@@ -81,8 +68,6 @@ h1, h2, h3, h4 { color: #FFFFFF !important; }
 # 3) 감사 로직 엔진
 # =========================================================
 class AuditSystem:
-    """가공된 표준 데이터를 최대한 자동 매핑하고, 위험 규칙을 적용"""
-
     STANDARD_COLS = {
         "사용자": ["사용자", "성명", "이용자", "사원명", "성함", "User"],
         "가맹점": ["가맹점명", "거래처", "상호", "가맹점", "지점명", "Merchant", "Customer name"],
@@ -94,7 +79,6 @@ class AuditSystem:
     def get_standard_mapping(df: pd.DataFrame) -> dict:
         mapping = {}
         cols = [str(c).strip() for c in df.columns]
-
         for key, aliases in AuditSystem.STANDARD_COLS.items():
             for c in cols:
                 if c in aliases:
@@ -104,11 +88,6 @@ class AuditSystem:
 
     @staticmethod
     def _is_hour_in_range(hour: float, start: int, end: int) -> bool:
-        """
-        심야시간 판정:
-        - start <= end : 일반 구간(예: 1~5)
-        - start > end  : 자정 넘김(예: 23~6)
-        """
         if pd.isna(hour):
             return False
         hour = int(hour)
@@ -120,11 +99,10 @@ class AuditSystem:
     def _parse_amount(series: pd.Series) -> pd.Series:
         s = (
             series.astype(str)
-            .str.replace(r"[^0-9\-]", "", regex=True)  # 음수/숫자만 보존
+            .str.replace(r"[^0-9\-]", "", regex=True)
             .replace("", "0")
         )
         amt = pd.to_numeric(s, errors="coerce").fillna(0)
-        # 음수 값이 들어오면 절대값 처리(취소/반제 등은 별도 규칙이 있을 수 있어 일단 안전하게)
         return amt.abs().astype("int64")
 
     @staticmethod
@@ -136,61 +114,42 @@ class AuditSystem:
         high_amount_limit: int,
         suspicious_keywords: list[str],
         score_weights: dict,
-    ) -> tuple[pd.DataFrame, dict]:
-        """
-        Returns:
-          df_analyzed: 분석 결과 포함 df
-          features: 규칙별 True/False 컬럼명 등을 모아둔 dict
-        """
+    ):
         df = df.copy()
 
-        # 필수 컬럼
         merchant_col = mapping["가맹점"]
         amt_col = mapping["금액"]
         dt_col = mapping["일시"]
 
-        # 금액 파싱
         df["P_AMT"] = AuditSystem._parse_amount(df[amt_col])
-
-        # 일시 파싱
         df["P_DT"] = pd.to_datetime(df[dt_col], errors="coerce")
         df["P_DATE"] = df["P_DT"].dt.date
         df["P_HOUR"] = df["P_DT"].dt.hour
 
-        # 사용자 컬럼 없으면 대체
         if "사용자" not in mapping:
             df["_P_USER"] = "미지정"
             mapping["사용자"] = "_P_USER"
-        user_col = mapping["사용자"]
 
-        # 규칙별 feature
         df["F_NIGHT"] = df["P_HOUR"].apply(lambda h: AuditSystem._is_hour_in_range(h, night_start, night_end))
         df["F_HIGH"] = df["P_AMT"] >= int(high_amount_limit)
 
-        # 위장 의심: 키워드 포함 + (심야일 때 가중) (기본은 키워드만으로도 flag 가능)
         kw = [k.strip() for k in suspicious_keywords if str(k).strip()]
         if len(kw) == 0:
-            # 빈 키워드면 항상 False
             df["F_SUSPICIOUS"] = False
         else:
             pattern = "|".join([pd.regex.escape(k) for k in kw])
             df["F_SUSPICIOUS"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
 
-        # 위험 점수 계산
         w_night = int(score_weights.get("night", 40))
         w_high = int(score_weights.get("high", 30))
         w_susp = int(score_weights.get("suspicious", 30))
 
-        # 기본 점수: 각 규칙 True면 가중치 더함
         df["risk_score"] = (
             df["F_NIGHT"].astype(int) * w_night +
             df["F_HIGH"].astype(int) * w_high +
-            # "위장의심"은 단독도 찍되, 심야 + 키워드이면 더 강하게 하려면 아래처럼 조건을 바꿀 수 있음.
-            # 여기서는 기본적으로 키워드만 있어도 w_susp 부여.
             df["F_SUSPICIOUS"].astype(int) * w_susp
         )
 
-        # 사유 문자열
         def build_reasons(row):
             reasons = []
             if row["F_NIGHT"]:
@@ -204,15 +163,11 @@ class AuditSystem:
         df["violation"] = df.apply(build_reasons, axis=1)
 
         features = {
-            "user_col": user_col,
+            "user_col": mapping["사용자"],
             "merchant_col": merchant_col,
             "amt_col": amt_col,
             "dt_col": dt_col,
-            "rule_cols": {
-                "night": "F_NIGHT",
-                "high": "F_HIGH",
-                "suspicious": "F_SUSPICIOUS",
-            }
+            "rule_cols": {"night": "F_NIGHT", "high": "F_HIGH", "suspicious": "F_SUSPICIOUS"},
         }
         return df, features
 
@@ -224,30 +179,24 @@ st.markdown(
     """
 <div class="header-box">
   <p class="main-title">🛡️ 2026 AUDIT AI PORTAL</p>
-  <p class="sub-title">통합 감사 데이터 분석 시스템 v1.4 (필터/키워드/차트 포함)</p>
+  <p class="sub-title">통합 감사 데이터 분석 시스템 v1.5 (matplotlib 제거 버전)</p>
 </div>
 """,
     unsafe_allow_html=True
 )
 
 # =========================================================
-# 5) 사이드바: 기준/룰/키워드/필터 옵션
+# 5) 사이드바 설정
 # =========================================================
 with st.sidebar:
     st.header("⚙️ 감사 기준 설정")
-
     night_range = st.slider("심야 시간 설정", 0, 23, (23, 6))
     high_amount_limit = st.number_input("고액 기준(원)", value=500000, step=50000, min_value=0)
 
     st.divider()
     st.markdown("### 🔍 위장 의심 키워드(사용자 정의)")
     default_keywords = "유통, 기획, 네트웍스, 컨설팅, 종합"
-    keywords_text = st.text_area(
-        "쉼표(,)로 구분해서 입력",
-        value=default_keywords,
-        height=80,
-        help="예: 유통, 컨설팅, 네트웍스"
-    )
+    keywords_text = st.text_area("쉼표(,)로 구분해서 입력", value=default_keywords, height=80)
     suspicious_keywords = [k.strip() for k in keywords_text.split(",") if k.strip()]
 
     st.divider()
@@ -261,18 +210,14 @@ with st.sidebar:
     min_score = st.slider("표시 최소 위험점수", 0, 100, 40, step=5)
 
     st.info(
-        "파일 내에 최소 [가맹점명, 이용금액, 승인일시] 컬럼이 포함되어야 분석됩니다.\n\n"
-        "※ [사용자] 컬럼은 없으면 '미지정'으로 표시됩니다."
+        "필수 컬럼: [가맹점명(또는 상호/거래처), 이용금액(또는 결제금액), 승인일시(또는 결제일시)]\n\n"
+        "※ [사용자] 컬럼이 없으면 '미지정'으로 표시됩니다."
     )
 
 # =========================================================
 # 6) 업로드
 # =========================================================
-uploaded_file = st.file_uploader(
-    "가공된 엑셀(XLSX) 또는 CSV 파일을 업로드하세요.",
-    type=["csv", "xlsx"],
-)
-
+uploaded_file = st.file_uploader("가공된 엑셀(XLSX) 또는 CSV 파일을 업로드하세요.", type=["csv", "xlsx"])
 if not uploaded_file:
     st.info("💡 파일을 업로드하면 자동으로 AI 분석이 시작됩니다.")
     st.stop()
@@ -293,23 +238,18 @@ try:
             df_raw = pd.read_csv(uploaded_file)
 
     if df_raw is None or df_raw.empty:
-        st.error("❗ 업로드된 파일에서 데이터를 읽지 못했습니다. (빈 파일/빈 시트일 수 있습니다.)")
+        st.error("❗ 업로드된 파일이 비어있거나 읽을 수 없습니다.")
         st.stop()
 
     audit = AuditSystem()
     mapping = audit.get_standard_mapping(df_raw)
 
-    # 필수키 확인
-    required_keys = ["가맹점", "금액", "일시"]
-    missing = [k for k in required_keys if k not in mapping]
+    missing = [k for k in ["가맹점", "금액", "일시"] if k not in mapping]
     if missing:
         st.error(
             "❗ 필수 컬럼을 찾을 수 없습니다.\n\n"
             f"- 누락: {', '.join(missing)}\n\n"
-            "컬럼명 예시:\n"
-            "- 가맹점: 가맹점명 / 거래처 / 상호\n"
-            "- 금액: 이용금액 / 결제금액 / 승인금액\n"
-            "- 일시: 승인일시 / 결제일시 / 거래일시\n"
+            "현재 컬럼 목록을 확인하세요."
         )
         st.write("현재 컬럼 목록:", list(df_raw.columns))
         st.stop()
@@ -325,11 +265,11 @@ try:
     )
 
 except Exception as e:
-    st.error(f"⚠️ 데이터를 처리하는 중 오류가 발생했습니다: {e}")
+    st.error(f"⚠️ 처리 중 오류: {e}")
     st.stop()
 
 # =========================================================
-# 8) 대시보드 요약
+# 8) 대시보드
 # =========================================================
 st.subheader("📊 감사 요약 대시보드")
 
@@ -353,7 +293,11 @@ st.divider()
 # 9) 규칙별 필터 탭
 # =========================================================
 rule_cols = features["rule_cols"]
-tab_all, tab_night, tab_high, tab_susp = st.tabs(["전체", "🌙 심야", "💰 고액", "🔍 위장의심(키워드)"])
+user_col = features["user_col"]
+merchant_col = features["merchant_col"]
+dt_col = features["dt_col"]
+
+display_cols = [user_col, merchant_col, "P_AMT", dt_col, "risk_score", "violation"]
 
 def filtered_view(base: pd.DataFrame, mode: str) -> pd.DataFrame:
     df = base.copy()
@@ -363,22 +307,8 @@ def filtered_view(base: pd.DataFrame, mode: str) -> pd.DataFrame:
         df = df[df[rule_cols["high"]] == True]
     elif mode == "suspicious":
         df = df[df[rule_cols["suspicious"]] == True]
-    # 최소 점수 필터
     df = df[df["risk_score"] >= int(min_score)]
     return df.sort_values("risk_score", ascending=False)
-
-user_col = features["user_col"]
-merchant_col = features["merchant_col"]
-dt_col = features["dt_col"]
-
-display_cols = [
-    user_col,
-    merchant_col,
-    "P_AMT",
-    dt_col,
-    "risk_score",
-    "violation",
-]
 
 def render_table(df: pd.DataFrame, title: str):
     st.markdown(f"### {title}")
@@ -398,46 +328,43 @@ def render_table(df: pd.DataFrame, title: str):
         disabled=True,
     )
 
+tab_all, tab_night, tab_high, tab_susp = st.tabs(["전체", "🌙 심야", "💰 고액", "🔍 위장의심(키워드)"])
+
 with tab_all:
-    df_view = filtered_view(df_analyzed, "all")
-    render_table(df_view, "📋 정밀 검토 대상 리스트(전체)")
+    render_table(filtered_view(df_analyzed, "all"), "📋 정밀 검토 대상 리스트(전체)")
 
 with tab_night:
-    df_view_n = filtered_view(df_analyzed, "night")
-    render_table(df_view_n, "🌙 심야 거래(필터)")
+    render_table(filtered_view(df_analyzed, "night"), "🌙 심야 거래(필터)")
 
 with tab_high:
-    df_view_h = filtered_view(df_analyzed, "high")
-    render_table(df_view_h, "💰 고액 거래(필터)")
+    render_table(filtered_view(df_analyzed, "high"), "💰 고액 거래(필터)")
 
 with tab_susp:
-    df_view_s = filtered_view(df_analyzed, "suspicious")
-    render_table(df_view_s, "🔍 위장 의심(키워드) 거래(필터)")
+    render_table(filtered_view(df_analyzed, "suspicious"), "🔍 위장 의심(키워드) 거래(필터)")
 
 st.divider()
 
 # =========================================================
-# 10) 차트(분포/시간대/규칙별 카운트)
-#   - matplotlib 사용(색 지정 없음)
+# 10) 차트(설치 없이 Streamlit 기본 차트 사용)
 # =========================================================
 st.subheader("📈 시각화(분포/시간대/규칙별)")
 
-# 차트용 데이터 (분석 성공 + P_DT 있는 데이터만)
-chart_df = df_analyzed.copy()
-chart_df = chart_df[chart_df["P_DT"].notna()].copy()
+chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
 
 colA, colB = st.columns(2)
 
 with colA:
-    st.markdown("#### 위험점수 분포")
+    st.markdown("#### 위험점수 분포(히스토그램)")
     if chart_df.empty:
         st.info("차트를 그릴 데이터가 없습니다.")
     else:
-        fig = plt.figure()
-        plt.hist(chart_df["risk_score"].fillna(0), bins=20)
-        plt.xlabel("Risk Score")
-        plt.ylabel("Count")
-        st.pyplot(fig, clear_figure=True)
+        # 히스토그램용 bin
+        bins = pd.cut(chart_df["risk_score"], bins=list(range(0, 105, 5)), right=False)
+        hist = bins.value_counts().sort_index()
+        hist_df = hist.reset_index()
+        hist_df.columns = ["score_bin", "count"]
+        hist_df["score_bin"] = hist_df["score_bin"].astype(str)
+        st.bar_chart(hist_df.set_index("score_bin"))
 
 with colB:
     st.markdown("#### 시간대별 거래 건수")
@@ -445,11 +372,7 @@ with colB:
         st.info("차트를 그릴 데이터가 없습니다.")
     else:
         hour_counts = chart_df["P_HOUR"].dropna().astype(int).value_counts().sort_index()
-        fig = plt.figure()
-        plt.bar(hour_counts.index, hour_counts.values)
-        plt.xlabel("Hour")
-        plt.ylabel("Count")
-        st.pyplot(fig, clear_figure=True)
+        st.bar_chart(hour_counts)
 
 st.markdown("#### 규칙별 적발 건수")
 r1, r2, r3 = st.columns(3)
@@ -463,7 +386,7 @@ with r3:
 st.divider()
 
 # =========================================================
-# 11) 다운로드(현재 최소점수 기준 + 전체/필터별 선택)
+# 11) 다운로드
 # =========================================================
 st.subheader("📥 분석 보고서 다운로드")
 
@@ -483,13 +406,8 @@ elif download_mode == "위장의심만":
 else:
     out_df = df_analyzed.copy()
 
-# 내부 임시 컬럼 제거(표시용 user 대체 컬럼은 유지해도 되지만, 원하면 제거 가능)
-# 여기서는 _P_USER는 남겨두되, 사용자가 원하면 아래에서 제거하도록 선택 가능
 remove_temp = st.checkbox("임시 컬럼(_P_*) 제거 후 다운로드", value=True)
-
-final_out = out_df.copy()
-if remove_temp:
-    final_out = final_out.drop(columns=[c for c in final_out.columns if c.startswith("_P_")], errors="ignore")
+final_out = out_df.drop(columns=[c for c in out_df.columns if c.startswith("_P_")], errors="ignore") if remove_temp else out_df
 
 csv_bytes = final_out.to_csv(index=False).encode("utf-8-sig")
 st.download_button(
