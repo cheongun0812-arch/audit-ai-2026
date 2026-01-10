@@ -13,224 +13,54 @@ st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 #  - 해결: "메인(밝은 입력 UI)" vs "사이드바(다크 입력 UI)"로 분리 스타일링
 #  - 특히 Selectbox의 "선택된 값" 영역을 검정(진회색)으로 강제
 # =========================================================
-st.markdown(
-    """
+st.markdown("""
 <style>
 /* =========================================================
-   0) GLOBAL BASE
-   ========================================================= */
-.stApp {
-  background-color: #0A0A0B;
-  color: #FFFFFF;
-}
-
-h1, h2, h3, h4 { color: #FFFFFF !important; }
-hr { border-top: 1px solid #2C2C2E !important; }
-
-
-/* =========================================================
-   1) HEADER
-   ========================================================= */
-.header-box {
-  background-color: #161618;
-  padding: 22px;
-  border-radius: 14px;
-  border: 1px solid #2C2C2E;
-  margin-bottom: 22px;
-  text-align: center;
-}
-.main-title {
-  font-size: 44px;
-  font-weight: 900;
-  color: #FFD700;
-  margin: 0;
-}
-.sub-title {
-  color: #C9B458;
-  font-size: 16px;
-  margin: 8px 0 0 0;
-}
-
-
-/* =========================================================
-   2) SIDEBAR
-   ========================================================= */
-[data-testid="stSidebar"] {
-  background-color: #111112 !important;
-  border-right: 1px solid #2C2C2E;
-}
-
-
-/* =========================================================
-   3) METRICS
-   ========================================================= */
-[data-testid="stMetricValue"] {
-  color: #FFFFFF !important;
-  font-weight: 900 !important;
-  font-size: 30px !important;
-}
-[data-testid="stMetricLabel"] {
-  color: #FFD700 !important;
-  font-weight: 800 !important;
-}
-
-
-/* =========================================================
-   4) TABLES / EDITOR
-   ========================================================= */
-[data-testid="stDataFrame"],
-[data-testid="stDataEditor"] {
-  border: 1px solid #2C2C2E !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
-
-/* =========================================================
-   5) ALERT BOXES (st.info / st.error / st.warning / st.success)
-   - 흰 박스 + 흰 글씨 문제 방지
-   ========================================================= */
-div[data-testid="stAlert"] {
-  border-radius: 12px !important;
-  border: 1px solid #2C2C2E !important;
-  background: #151517 !important;
-}
-div[data-testid="stAlert"] * {
-  color: #FFFFFF !important;
-}
-div[data-testid="stAlert"] a {
-  color: #FFD700 !important;
-}
-
-
-/* =========================================================
-   6) INPUT UI READABILITY CORE
-   - 원칙: 메인(section.main)은 "밝은 입력 UI + 진한 글자"
-          사이드바는 "다크 입력 UI + 흰 글자"
-   - 절대 금지: [data-testid="..."] * { color: white } 같은 전역 강제
+   🔥 FileUploader 업로드 후 "선택된 파일명/정보" 카드 가독성 강제 패치
+   - 통합 CSS 맨 아래에 붙이기(우선순위 확보)
    ========================================================= */
 
-/* -------------------------
-   6-A) MAIN: Selectbox
-   - 선택된 값(현재 값)이 흰색으로 보이는 문제 해결
-   ------------------------- */
-section.main div[data-baseweb="select"] span,
-section.main div[data-baseweb="select"] input {
+/* 1) 메인 화면: 업로드된 파일 카드(파일명/사이즈/삭제X 등) 텍스트를 검정으로 */
+section.main div[data-testid="stFileUploaderFile"],
+section.main div[data-testid="stFileUploaderFile"] * ,
+section.main div[data-testid="stFileUploaderFileName"],
+section.main div[data-testid="stFileUploaderFileName"] * {
   color: #111111 !important;
   -webkit-text-fill-color: #111111 !important;
 }
-section.main div[data-baseweb="select"] > div {
+
+/* 2) 메인 화면: 업로드된 파일 카드 배경을 흰색으로(텍스트 대비 확실히) */
+section.main div[data-testid="stFileUploaderFile"] {
   background-color: #FFFFFF !important;
   border: 1px solid #D0D0D0 !important;
   border-radius: 10px !important;
 }
-/* 펼친 드롭다운 목록(listbox) */
-div[role="listbox"] span {
-  color: #111111 !important;
-  -webkit-text-fill-color: #111111 !important;
+
+/* 3) 메인 화면: 파일 카드의 아이콘(svg)도 흐려 보이면 채색 */
+section.main div[data-testid="stFileUploaderFile"] svg,
+section.main div[data-testid="stFileUploaderFileName"] svg {
+  fill: #111111 !important;
 }
 
-/* -------------------------
-   6-B) MAIN: TextInput / NumberInput / TextArea
-   - 입력값/선택값 대비 강화(신뢰도↑)
-   ------------------------- */
-section.main textarea,
-section.main input {
-  color: #111111 !important;
-  -webkit-text-fill-color: #111111 !important;
-  background-color: #FFFFFF !important;
-  border: 1px solid #D0D0D0 !important;
-  border-radius: 10px !important;
-}
-section.main textarea::placeholder,
-section.main input::placeholder {
-  color: #777777 !important;
-  -webkit-text-fill-color: #777777 !important;
-}
-
-/* -------------------------
-   6-C) SIDEBAR: Selectbox
-   ------------------------- */
-[data-testid="stSidebar"] div[data-baseweb="select"] span,
-[data-testid="stSidebar"] div[data-baseweb="select"] input {
+/* 4) 사이드바(혹시 사이드바에서도 업로더 사용 시): 파일 카드 텍스트는 흰색 */
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFile"],
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFile"] *,
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFileName"],
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFileName"] * {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
 }
-[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFile"] {
   background-color: #111112 !important;
   border: 1px solid #2C2C2E !important;
   border-radius: 10px !important;
 }
-
-/* -------------------------
-   6-D) SIDEBAR: TextInput / NumberInput / TextArea
-   ------------------------- */
-[data-testid="stSidebar"] textarea,
-[data-testid="stSidebar"] input {
-  color: #FFFFFF !important;
-  -webkit-text-fill-color: #FFFFFF !important;
-  background-color: #111112 !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 10px !important;
-}
-[data-testid="stSidebar"] textarea::placeholder,
-[data-testid="stSidebar"] input::placeholder {
-  color: #9A9A9A !important;
-  -webkit-text-fill-color: #9A9A9A !important;
-}
-
-
-/* =========================================================
-   7) FILE UPLOADER (Browse files)
-   - 메인: 흰 배경 + 검정 텍스트
-   - 사이드바: 다크 배경 + 흰 텍스트
-   ========================================================= */
-
-/* ----- 7-A) MAIN: FileUploader ----- */
-section.main [data-testid="stFileUploader"] {
-  background-color: #FFFFFF !important;
-  border: 1px solid #D0D0D0 !important;
-  border-radius: 12px !important;
-  padding: 10px !important;
-}
-/* 업로더 내부 텍스트(파일명/상태/안내문구 등): 검정 */
-section.main [data-testid="stFileUploader"] * {
-  color: #111111 !important;
-  -webkit-text-fill-color: #111111 !important;
-}
-/* Browse files 버튼 */
-section.main [data-testid="stFileUploader"] button {
-  color: #111111 !important;
-  border: 1px solid #D0D0D0 !important;
-  border-radius: 10px !important;
-}
-/* 안내/보조문구는 진회색 */
-section.main [data-testid="stFileUploader"] small,
-section.main [data-testid="stFileUploader"] label {
-  color: #555555 !important;
-  -webkit-text-fill-color: #555555 !important;
-}
-
-/* ----- 7-B) SIDEBAR: FileUploader ----- */
-[data-testid="stSidebar"] [data-testid="stFileUploader"] {
-  background-color: #111112 !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 12px !important;
-  padding: 10px !important;
-}
-[data-testid="stSidebar"] [data-testid="stFileUploader"] * {
-  color: #FFFFFF !important;
-  -webkit-text-fill-color: #FFFFFF !important;
-}
-[data-testid="stSidebar"] [data-testid="stFileUploader"] button {
-  color: #FFFFFF !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 10px !important;
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFile"] svg,
+[data-testid="stSidebar"] div[data-testid="stFileUploaderFileName"] svg {
+  fill: #FFFFFF !important;
 }
 </style>
-""",
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
 # =========================================================
 # 3) 감사 로직 엔진
@@ -595,4 +425,5 @@ st.download_button(
 )
 
 st.caption("※ 점수/키워드/심야시간 설정은 사이드바에서 조정 가능합니다.")
+
 
