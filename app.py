@@ -8,11 +8,15 @@ from datetime import datetime
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
 # =========================================================
-# 2) CSS (시인성 + 다크테마 + Alert 박스 다크화)
+# 2) CSS (가독성/신뢰도 개선 핵심)
+#  - 문제 원인: stSelectbox / stTextArea 에 * 전체에 white 강제 → 선택값/입력값이 안보임
+#  - 해결: "메인(밝은 입력 UI)" vs "사이드바(다크 입력 UI)"로 분리 스타일링
+#  - 특히 Selectbox의 "선택된 값" 영역을 검정(진회색)으로 강제
 # =========================================================
 st.markdown(
     """
 <style>
+/* ===== 전체 기본 ===== */
 .stApp { background-color: #0A0A0B; color: #FFFFFF; }
 
 .header-box {
@@ -34,21 +38,14 @@ st.markdown(
 [data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 900 !important; font-size: 30px !important; }
 [data-testid="stMetricLabel"] { color: #FFD700 !important; font-weight: 800 !important; }
 
-/* 입력 요소 텍스트 */
-[data-testid="stSelectbox"] *,
-[data-testid="stNumberInput"] *,
-[data-testid="stSlider"] *,
-[data-testid="stTextInput"] *,
-[data-testid="stTextArea"] * { color: #FFFFFF !important; }
-
-/* 테이블/에디터 */
+/* ===== 테이블/에디터 ===== */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
   border: 1px solid #2C2C2E !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
 
-/* Alert 박스(흰 박스 문제 제거) */
+/* ===== Alert 박스(흰 박스 문제 방지) ===== */
 div[data-testid="stAlert"] {
   border-radius: 12px !important;
   border: 1px solid #2C2C2E !important;
@@ -59,6 +56,73 @@ div[data-testid="stAlert"] a { color: #FFD700 !important; }
 
 hr { border-top: 1px solid #2C2C2E !important; }
 h1, h2, h3, h4 { color: #FFFFFF !important; }
+
+
+/* =========================================================
+   ✅ 입력 UI 가독성 핵심 규칙
+   - 메인 영역(section.main): "밝은 입력 박스 + 진한 글자"
+   - 사이드바: "다크 입력 박스 + 흰 글자"
+   ========================================================= */
+
+/* ---------- (A) 메인 영역: Selectbox / TextArea / TextInput / NumberInput 등 ---------- */
+/* Selectbox: 선택된 값(현재값) 텍스트를 검정으로 강제 */
+section.main div[data-baseweb="select"] span,
+section.main div[data-baseweb="select"] input {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+}
+/* Selectbox: 선택 영역 배경 밝게 */
+section.main div[data-baseweb="select"] > div {
+  background-color: #FFFFFF !important;
+  border: 1px solid #D0D0D0 !important;
+}
+/* Dropdown listbox 텍스트도 검정 보장 */
+div[role="listbox"] span {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+}
+
+/* TextArea / TextInput / NumberInput: 입력 텍스트 검정 + 배경 흰색 */
+section.main textarea,
+section.main input {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+  background-color: #FFFFFF !important;
+  border: 1px solid #D0D0D0 !important;
+}
+
+/* placeholder는 회색으로(신뢰도↑: 입력 전/후 구분 명확) */
+section.main textarea::placeholder,
+section.main input::placeholder {
+  color: #777777 !important;
+  -webkit-text-fill-color: #777777 !important;
+}
+
+/* ---------- (B) 사이드바: Selectbox / TextArea / TextInput / NumberInput 등 ---------- */
+/* Selectbox: 사이드바는 다크 배경 → 흰 글자 */
+[data-testid="stSidebar"] div[data-baseweb="select"] span,
+[data-testid="stSidebar"] div[data-baseweb="select"] input {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+  background-color: #111112 !important;
+  border: 1px solid #2C2C2E !important;
+}
+
+/* TextArea / TextInput / NumberInput: 사이드바는 흰 글자 + 다크 배경 */
+[data-testid="stSidebar"] textarea,
+[data-testid="stSidebar"] input {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  background-color: #111112 !important;
+  border: 1px solid #2C2C2E !important;
+}
+[data-testid="stSidebar"] textarea::placeholder,
+[data-testid="stSidebar"] input::placeholder {
+  color: #9A9A9A !important;
+  -webkit-text-fill-color: #9A9A9A !important;
+}
 </style>
 """,
     unsafe_allow_html=True
@@ -137,6 +201,7 @@ class AuditSystem:
         if len(kw) == 0:
             df["F_SUSPICIOUS"] = False
         else:
+            # 키워드 안전 처리(특수문자 escape)
             pattern = "|".join([pd.regex.escape(k) for k in kw])
             df["F_SUSPICIOUS"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
 
@@ -179,7 +244,7 @@ st.markdown(
     """
 <div class="header-box">
   <p class="main-title">🛡️ 2026 AUDIT AI PORTAL</p>
-  <p class="sub-title">통합 감사 데이터 분석 시스템 v1.5 (matplotlib 제거 버전)</p>
+  <p class="sub-title">통합 감사 데이터 분석 시스템 v1.6 (선택값/입력값 가독성 강화)</p>
 </div>
 """,
     unsafe_allow_html=True
@@ -196,7 +261,12 @@ with st.sidebar:
     st.divider()
     st.markdown("### 🔍 위장 의심 키워드(사용자 정의)")
     default_keywords = "유통, 기획, 네트웍스, 컨설팅, 종합"
-    keywords_text = st.text_area("쉼표(,)로 구분해서 입력", value=default_keywords, height=80)
+    keywords_text = st.text_area(
+        "쉼표(,)로 구분해서 입력",
+        value=default_keywords,
+        height=80,
+        placeholder="예: 유통, 컨설팅, 네트웍스"
+    )
     suspicious_keywords = [k.strip() for k in keywords_text.split(",") if k.strip()]
 
     st.divider()
@@ -219,7 +289,7 @@ with st.sidebar:
 # =========================================================
 uploaded_file = st.file_uploader("가공된 엑셀(XLSX) 또는 CSV 파일을 업로드하세요.", type=["csv", "xlsx"])
 if not uploaded_file:
-    st.info("💡 파일을 업로드하면 자동으로 AI 분석이 시작됩니다.")
+    st.info("💡 파일을 업로드하면 자동으로 분석이 시작됩니다.")
     st.stop()
 
 # =========================================================
@@ -229,7 +299,11 @@ try:
     if uploaded_file.name.lower().endswith(".xlsx"):
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_names = excel_file.sheet_names
+
+        # ✅ 여기 Selectbox가 “선택값이 흰색으로 보이는 문제”가 있었던 구간
+        #    위 CSS로 선택 결과 텍스트가 메인 영역에서 검정으로 보이게 개선됨
         selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("📝 데이터가 있는 시트를 선택하세요", sheet_names)
+
         df_raw = excel_file.parse(selected_sheet)
     else:
         try:
@@ -358,7 +432,6 @@ with colA:
     if chart_df.empty:
         st.info("차트를 그릴 데이터가 없습니다.")
     else:
-        # 히스토그램용 bin
         bins = pd.cut(chart_df["risk_score"], bins=list(range(0, 105, 5)), right=False)
         hist = bins.value_counts().sort_index()
         hist_df = hist.reset_index()
