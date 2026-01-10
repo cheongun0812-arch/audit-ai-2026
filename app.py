@@ -3,13 +3,16 @@ import pandas as pd
 from datetime import datetime
 
 # =========================================================
-# 0) PAGE CONFIG (항상 최상단)
+# 0) PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
+
 # =========================================================
-# 1) CSS + LOADED BADGE (HTML로 강제 표시)
-#    - pseudo-element(::before) 대신 HTML 배지로 "무조건" 보이게 함
+# 1) CSS (통합 + 충돌 최소 + 복원버튼/라인/톤업까지)
+#    - (핵심) 사이드바 접힘/복원 컨트롤(<< / >>) 항상 보이게 고정
+#    - 구분선은 "박스"가 아니라 얇은 라인으로
+#    - 업로더 Browse files 버튼 대비 강화
 # =========================================================
 st.markdown(
     """
@@ -24,6 +27,7 @@ st.markdown(
   --muted:#B9C2D6;
   --muted2:#8791A6;
   --gold:#D6B25E;
+  --gold2:#BFA04D;
   --shadow: 0 10px 24px rgba(0,0,0,.35);
 }
 
@@ -38,7 +42,7 @@ st.markdown(
 h1,h2,h3,h4{ color: var(--text) !important; }
 hr{ border-top: 1px solid var(--border) !important; }
 
-/* ===== TOP BAR / HEADER / TOOLBAR: 여백 축소(버전별 후보를 넓게 커버) ===== */
+/* ===== 상단 여백 ===== */
 header[data-testid="stHeader"],
 div[data-testid="stToolbar"],
 div[data-testid="stDecoration"],
@@ -48,7 +52,55 @@ div[data-testid="stStatusWidget"]{
   display: none !important;
 }
 div.block-container{
-  padding-top: 10px !important;   /* 상단 간격: 8~16 사이 취향 조정 */
+  padding-top: 10px !important;
+}
+
+/* =========================================================
+   ✅ (중요) 사이드바 접힘/복원 버튼(<< / >>) 항상 보이게
+   - Streamlit 버전별로 testid가 다를 수 있어 여러 후보를 함께 처리
+   ========================================================= */
+[data-testid="collapsedControl"],
+button[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+button[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+button[data-testid="stSidebarCollapseButton"]{
+  position: fixed !important;
+  top: 12px !important;
+  left: 12px !important;
+  z-index: 999999 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 버튼 자체 스타일 */
+[data-testid="collapsedControl"] button,
+button[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"] button,
+button[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+button[data-testid="stSidebarCollapseButton"]{
+  background: rgba(214,178,94,.18) !important;
+  border: 1px solid rgba(214,178,94,.55) !important;
+  border-radius: 12px !important;
+  width: 38px !important;
+  height: 38px !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.35) !important;
+}
+
+/* 아이콘(chevron) 색 보장 */
+[data-testid="collapsedControl"] svg,
+button[data-testid="collapsedControl"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+button[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg,
+button[data-testid="stSidebarCollapseButton"] svg{
+  fill: var(--text) !important;
+  stroke: var(--text) !important;
+  opacity: 1 !important;
 }
 
 /* ===== Sidebar ===== */
@@ -67,14 +119,14 @@ div.block-container{
   -webkit-text-fill-color: var(--muted) !important;
 }
 
-/* ===== Hero (프로그램 간판) ===== */
+/* ===== Hero ===== */
 .hero{
   background: linear-gradient(135deg, rgba(214,178,94,.15) 0%, rgba(214,178,94,.06) 30%, rgba(255,255,255,.03) 100%);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px 22px;
   box-shadow: var(--shadow);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .hero-top{ display:flex; align-items:center; gap:10px; }
 .badge{
@@ -86,7 +138,7 @@ div.block-container{
   font-weight: 900;
 }
 .hero-title{
-  font-size: 26px;  /* ✅ 타이틀 크게 */
+  font-size: 26px;
   font-weight: 900;
   letter-spacing: .3px;
   margin: 0;
@@ -104,7 +156,7 @@ div.block-container{
   border-radius: 16px;
   padding: 16px;
   box-shadow: var(--shadow);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .panel-title{
   font-weight: 900;
@@ -117,6 +169,16 @@ div.block-container{
   color: var(--muted2);
   font-size: 12px;
   margin: -6px 0 10px 0;
+}
+
+/* =========================================================
+   ✅ (중요) “박스처럼 보이는 구분” 제거 → 얇은 라인(divider) 전용
+   ========================================================= */
+.soft-line{
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(214,178,94,.35), transparent);
+  border: none;
+  margin: 14px 0 14px 0;
 }
 
 /* ===== Metrics ===== */
@@ -140,7 +202,7 @@ div[data-testid="stAlert"]{
 div[data-testid="stAlert"] *{ color: var(--text) !important; }
 div[data-testid="stAlert"] a{ color: var(--gold) !important; }
 
-/* ===== Inputs (Select / Text / Number / TextArea) ===== */
+/* ===== Inputs ===== */
 div[data-baseweb="select"] > div{
   background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -162,8 +224,6 @@ input::placeholder, textarea::placeholder{
   color: var(--muted2) !important;
   -webkit-text-fill-color: var(--muted2) !important;
 }
-
-/* dropdown listbox */
 div[role="listbox"]{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -175,7 +235,7 @@ div[role="listbox"] span{
   -webkit-text-fill-color: var(--text) !important;
 }
 
-/* ===== FileUploader: 드래그존 + Browse files + 선택 파일 카드 ===== */
+/* ===== FileUploader (드래그존 + 버튼 + 파일카드) ===== */
 [data-testid="stFileUploader"]{
   background: var(--panel2) !important;
   border: 1px dashed rgba(214,178,94,.55) !important;
@@ -191,12 +251,20 @@ div[role="listbox"] span{
   color: var(--muted) !important;
   -webkit-text-fill-color: var(--muted) !important;
 }
+
+/* ✅ Browse files 버튼: 글씨 안 보이는 문제 해결(대비 강화) */
 [data-testid="stFileUploader"] button{
   border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.65) !important;
+  border: 1px solid rgba(214,178,94,.75) !important;
+  background: rgba(214,178,94,.22) !important;
+  color: var(--text) !important;
+}
+[data-testid="stFileUploader"] button *{
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
 }
 
-/* 업로드된 파일명/정보(카드) */
+/* 업로드된 파일 카드 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
@@ -223,7 +291,7 @@ div[data-testid="stFileUploaderFile"] svg{
 }
 </style>
 
-<!-- ✅ LOADED BADGE: HTML로 직접 표시 (안 보이면 이 코드가 실행되지 않은 것) -->
+<!-- ✅ 로드 확인 배지(HTML) -->
 <div style="
  position:fixed; top:10px; left:10px; z-index:999999;
  padding:6px 10px; border-radius:10px;
@@ -237,8 +305,9 @@ div[data-testid="stFileUploaderFile"] svg{
     unsafe_allow_html=True
 )
 
+
 # =========================================================
-# 2) Panel helpers
+# 2) UI helpers
 # =========================================================
 def panel_open(title: str, subtitle: str | None = None):
     st.markdown('<div class="panel">', unsafe_allow_html=True)
@@ -248,6 +317,10 @@ def panel_open(title: str, subtitle: str | None = None):
 
 def panel_close():
     st.markdown("</div>", unsafe_allow_html=True)
+
+def soft_divider():
+    st.markdown('<div class="soft-line"></div>', unsafe_allow_html=True)
+
 
 # =========================================================
 # 3) Audit Engine
@@ -284,7 +357,7 @@ class AuditSystem:
     def _parse_amount(series: pd.Series) -> pd.Series:
         s = (
             series.astype(str)
-            .str.replace(r"[^0-9\-]", "", regex=True)
+            .str.replace(r"[^0-9\\-]", "", regex=True)
             .replace("", "0")
         )
         amt = pd.to_numeric(s, errors="coerce").fillna(0)
@@ -322,7 +395,6 @@ class AuditSystem:
         if len(kw) == 0:
             df["F_SUSPICIOUS"] = False
         else:
-            # 안전한 키워드 패턴 처리
             pattern = "|".join([pd.regex.escape(k) for k in kw])
             df["F_SUSPICIOUS"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
 
@@ -359,7 +431,7 @@ class AuditSystem:
 
 
 # =========================================================
-# 4) HERO (간판)
+# 4) HERO
 # =========================================================
 st.markdown(
     """
@@ -375,6 +447,8 @@ st.markdown(
 """,
     unsafe_allow_html=True
 )
+
+soft_divider()
 
 # =========================================================
 # 5) SIDEBAR
@@ -411,7 +485,7 @@ with st.sidebar:
 
 
 # =========================================================
-# 6) UPLOAD PANEL
+# 6) Upload
 # =========================================================
 panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 자동으로 시트 선택/분석이 진행됩니다.")
 uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
@@ -419,12 +493,14 @@ panel_close()
 
 if not uploaded_file:
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일을 업로드하면 분석이 시작됩니다. (파일명/선택값은 다크톤에서 선명하게 보이도록 설정되어 있습니다.)")
+    st.info("파일을 업로드하면 분석이 시작됩니다. (파일명/선택값은 선명하게 표시됩니다.)")
     panel_close()
     st.stop()
 
+soft_divider()
+
 # =========================================================
-# 7) LOAD + ANALYZE
+# 7) Load + Analyze
 # =========================================================
 try:
     if uploaded_file.name.lower().endswith(".xlsx"):
@@ -476,8 +552,10 @@ except Exception as e:
     panel_close()
     st.stop()
 
+soft_divider()
+
 # =========================================================
-# 8) DASHBOARD
+# 8) Dashboard
 # =========================================================
 panel_open("③ 감사 요약 대시보드", "핵심 지표를 한 눈에 확인합니다.")
 total_cnt = len(df_analyzed)
@@ -496,8 +574,10 @@ with c4:
     st.metric("심야(룰)", f"{night_cnt:,}건")
 panel_close()
 
+soft_divider()
+
 # =========================================================
-# 9) TABLES (TABS)
+# 9) Tables
 # =========================================================
 rule_cols = features["rule_cols"]
 user_col = features["user_col"]
@@ -545,8 +625,10 @@ with tab_susp:
     render_table(filtered_view(df_analyzed, "suspicious"))
 panel_close()
 
+soft_divider()
+
 # =========================================================
-# 10) CHARTS (NO MATPLOTLIB)
+# 10) Charts (no matplotlib)
 # =========================================================
 panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
 chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
@@ -581,8 +663,10 @@ with r3:
     st.metric("🔍 키워드 의심", f"{int(df_analyzed['F_SUSPICIOUS'].sum()):,}건")
 panel_close()
 
+soft_divider()
+
 # =========================================================
-# 11) DOWNLOAD
+# 11) Download
 # =========================================================
 panel_open("⑥ 보고서 다운로드", "필터 적용/미적용 범위를 선택하여 CSV로 내려받습니다.")
 download_mode = st.selectbox(
@@ -611,5 +695,4 @@ st.download_button(
     file_name=f"Audit_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
     mime="text/csv",
 )
-st.caption("※ 상단 배지(CSS LOADED)가 보이지 않으면, 이 파일이 실행되고 있는지(app.py) 또는 CSS가 `st.stop()` 이전에 있는지 확인하세요.")
 panel_close()
