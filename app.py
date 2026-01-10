@@ -6,7 +6,7 @@ from datetime import datetime
 # =========================================================
 # 0) BUILD INFO
 # =========================================================
-BUILD = "v2.3"
+BUILD = "v2.5"
 
 # =========================================================
 # 1) PAGE CONFIG
@@ -14,7 +14,11 @@ BUILD = "v2.3"
 st.set_page_config(page_title="2026 AUDIT (corporate card risk) AI PORTAL", layout="wide")
 
 # =========================================================
-# 2) CSS (상단 여백 + 타이틀 잘림 방지 + 좌/우 배치 미관 유지)
+# 2) CSS
+#   - 상단 여백 더 확보 (타이틀 잘림 방지)
+#   - 메인 영역: 업로더/선택값 "화이트 배경 + 검정 텍스트"로 가독성 100%
+#   - 사이드바: 다크 톤(어두운 배경 + 밝은 텍스트)로 강제 복구  ✅(이번 요청 핵심)
+#   - 사이드바 토글 버튼 항상 보이게
 # =========================================================
 st.markdown(
     f"""
@@ -30,6 +34,16 @@ st.markdown(
   --muted2:#8791A6;
   --gold:#D6B25E;
   --shadow: 0 10px 24px rgba(0,0,0,.35);
+
+  /* 메인 입력(화이트) 팔레트 */
+  --mainInputBg: #F4F6FB;
+  --mainInputText: #111827;
+  --mainInputSub: #374151;
+
+  /* 사이드바 입력(다크) 팔레트 */
+  --sideInputBg: #0E1117;
+  --sideInputText: #EDEFF4;
+  --sideInputSub: #B9C2D6;
 }}
 
 .stApp{{
@@ -41,15 +55,14 @@ st.markdown(
 }}
 h1,h2,h3,h4{{ color: var(--text) !important; }}
 
-/* ✅ 상단 잘림 방지: 위쪽 패딩을 넉넉히 확보 */
+/* ✅ 상단 전체를 더 아래로 */
 div.block-container{{
-  padding-top: 42px !important;  /* ← 타이틀 잘림 개선 핵심 */
+  padding-top: 64px !important;
   padding-bottom: 26px !important;
 }}
 
 /* =========================================================
    ✅ 사이드바 토글 버튼(<< / >>) 항상 표시 + 클릭 가능
-   - 타이틀과 겹치지 않도록 살짝 아래로 내림
    ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
@@ -58,7 +71,7 @@ button[data-testid="stSidebarCollapsedControl"],
 [data-testid="stSidebarCollapseButton"],
 button[data-testid="stSidebarCollapseButton"]{{
   position: fixed !important;
-  top: 18px !important;    /* 12px -> 18px */
+  top: 22px !important;
   left: 12px !important;
   z-index: 999999 !important;
   opacity: 1 !important;
@@ -80,7 +93,6 @@ button[data-testid="stSidebarCollapseButton"]{{
   height: 38px !important;
   box-shadow: 0 8px 18px rgba(0,0,0,.35) !important;
 }}
-
 [data-testid="collapsedControl"] svg,
 button[data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapsedControl"] svg,
@@ -92,7 +104,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   opacity: 1 !important;
 }}
 
-/* ===== Sidebar ===== */
+/* ===== Sidebar Shell ===== */
 [data-testid="stSidebar"]{{
   background: linear-gradient(180deg, #0E1116 0%, #0A0C10 100%) !important;
   border-right: 1px solid var(--border) !important;
@@ -106,6 +118,34 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 [data-testid="stSidebar"] .stMarkdown p{{
   color: var(--muted) !important;
   -webkit-text-fill-color: var(--muted) !important;
+}}
+
+/* ✅✅✅ 사이드바 "입력 박스" 가독성 복구 (이번 요청 핵심)
+   - 메인에서 적용한 화이트 입력 스타일이 사이드바로 번지는 것을 "오버라이드" */
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] textarea{{
+  background: var(--sideInputBg) !important;
+  color: var(--sideInputText) !important;
+  -webkit-text-fill-color: var(--sideInputText) !important;
+  border: 1px solid var(--border2) !important;
+}}
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stCaption{{
+  color: var(--sideInputSub) !important;
+  -webkit-text-fill-color: var(--sideInputSub) !important;
+}}
+
+/* 사이드바의 selectbox도 다크로 강제 */
+[data-testid="stSidebar"] div[data-baseweb="select"] > div{{
+  background: var(--sideInputBg) !important;
+  border: 1px solid var(--border2) !important;
+}}
+[data-testid="stSidebar"] div[data-baseweb="select"] span,
+[data-testid="stSidebar"] div[data-baseweb="select"] input{{
+  color: var(--sideInputText) !important;
+  -webkit-text-fill-color: var(--sideInputText) !important;
+  font-weight: 700 !important;
 }}
 
 /* ===== Hero ===== */
@@ -134,7 +174,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 .hero-title{{ font-size: 26px; font-weight: 900; letter-spacing: .3px; margin: 0; }}
 .hero-sub{{ margin-top: 6px; color: var(--muted); font-size: 13px; }}
-
 .build-box{{
   padding: 8px 12px;
   border-radius: 12px;
@@ -158,14 +197,13 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 .panel-title{{ font-weight: 900; margin: 0 0 10px 0; font-size: 14px; letter-spacing: .2px; }}
 .panel-sub{{ color: var(--muted2); font-size: 12px; margin: -6px 0 10px 0; }}
-
 .soft-line{{
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(214,178,94,.35), transparent);
   margin: 14px 0;
 }}
 
-/* ✅ 흐림/투명 제거 */
+/* ✅ blur/opacity 제거 */
 [data-testid="stFileUploader"] *,
 div[data-baseweb="select"] *,
 div[role="listbox"] *,
@@ -176,19 +214,26 @@ button * {{
   text-shadow: none !important;
 }}
 
-/* ===== Selectbox ===== */
+/* =========================================================
+   ✅ 메인 영역 입력(파일 업로더/시트 선택) 가독성: 화이트+검정
+   - 사이드바는 위에서 별도 오버라이드로 다크 유지
+   ========================================================= */
+
+/* 메인 selectbox(선택값) */
 div[data-baseweb="select"] > div{{
-  background-color: var(--panel2) !important;
-  border: 1px solid var(--border2) !important;
+  background-color: var(--mainInputBg) !important;
+  border: 1px solid rgba(214,178,94,.55) !important;
   border-radius: 12px !important;
 }}
 div[data-baseweb="select"] span,
 div[data-baseweb="select"] input{{
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--mainInputText) !important;
+  -webkit-text-fill-color: var(--mainInputText) !important;
   opacity: 1 !important;
-  font-weight: 650 !important;
+  font-weight: 800 !important;
 }}
+
+/* 드롭다운 리스트는 다크 유지 */
 div[role="listbox"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -202,52 +247,56 @@ div[role="listbox"] span{{
   font-weight: 650 !important;
 }}
 
-/* ===== FileUploader ===== */
+/* 메인 업로더 박스 */
 [data-testid="stFileUploader"]{{
-  background: var(--panel2) !important;
-  border: 1px dashed rgba(214,178,94,.55) !important;
+  background: var(--mainInputBg) !important;
+  border: 1px dashed rgba(214,178,94,.75) !important;
   border-radius: 14px !important;
   padding: 12px !important;
 }}
 [data-testid="stFileUploader"] *{{
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--mainInputText) !important;
+  -webkit-text-fill-color: var(--mainInputText) !important;
   opacity: 1 !important;
 }}
 [data-testid="stFileUploader"] small,
 [data-testid="stFileUploader"] label{{
-  color: var(--muted) !important;
-  -webkit-text-fill-color: var(--muted) !important;
+  color: var(--mainInputSub) !important;
+  -webkit-text-fill-color: var(--mainInputSub) !important;
   opacity: 1 !important;
 }}
+
+/* Browse files 버튼 */
 [data-testid="stFileUploader"] button{{
   border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.85) !important;
-  background: rgba(214,178,94,.24) !important;
+  border: 1px solid rgba(214,178,94,.95) !important;
+  background: rgba(214,178,94,.26) !important;
 }}
 [data-testid="stFileUploader"] button,
 [data-testid="stFileUploader"] button *{{
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--mainInputText) !important;
+  -webkit-text-fill-color: var(--mainInputText) !important;
   opacity: 1 !important;
-  font-weight: 750 !important;
+  font-weight: 900 !important;
 }}
+
+/* 업로드된 파일명/용량 선명 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
 div[data-testid="stFileUploaderFileName"] *{{
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--mainInputText) !important;
+  -webkit-text-fill-color: var(--mainInputText) !important;
   opacity: 1 !important;
   filter: none !important;
 }}
 div[data-testid="stFileUploaderFile"]{{
-  background: var(--panel2) !important;
-  border: 1px solid var(--border2) !important;
+  background: rgba(255,255,255,.75) !important;
+  border: 1px solid rgba(17,24,39,.18) !important;
   border-radius: 12px !important;
 }}
 
-/* ===== Data ===== */
+/* ===== DataFrame ===== */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"]{{
   border: 1px solid var(--border) !important;
   border-radius: 14px !important;
@@ -383,7 +432,7 @@ class AuditSystem:
 
 
 # =========================================================
-# 5) HERO (타이틀 변경)
+# 5) HERO
 # =========================================================
 st.markdown(
     f"""
@@ -440,9 +489,9 @@ with st.sidebar:
 
 
 # =========================================================
-# 7) MAIN: 업로드 / 시트선택을 좌우 배치로 정리
+# 7) MAIN: 업로드/시트선택 50:50
 # =========================================================
-colL, colR = st.columns([1.25, 1.0], gap="large")
+colL, colR = st.columns([1, 1], gap="large")
 
 with colL:
     panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 분석이 진행됩니다.")
@@ -450,7 +499,6 @@ with colL:
     panel_close()
 
 with colR:
-    # 업로드 전: 우측에 안내만 (불필요한 큰 창 남발 방지)
     if not uploaded_file:
         panel_open("② 시트 선택", "파일 업로드 후, 시트를 선택할 수 있습니다.")
         st.info("좌측에서 파일을 업로드하세요.")
@@ -464,7 +512,7 @@ if not uploaded_file:
     st.stop()
 
 # =========================================================
-# 8) Load + Sheet selection (우측 컬럼에서 진행)
+# 8) Load + Analyze
 # =========================================================
 try:
     selected_sheet = None
@@ -474,7 +522,7 @@ try:
         sheet_names = excel_file.sheet_names
 
         with colR:
-            panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
+            panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. (선택값은 선명 표시)")
             selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox(
                 "📝 데이터가 있는 시트를 선택하세요",
                 sheet_names
@@ -484,7 +532,6 @@ try:
         df_raw = excel_file.parse(selected_sheet)
 
     else:
-        # CSV는 시트가 없으므로 우측에 “시트 없음” 안내만 표시
         with colR:
             panel_open("② 시트 선택", "CSV 파일은 시트 선택이 필요 없습니다.")
             st.success("CSV 업로드 완료: 시트 선택 단계 생략")
@@ -675,4 +722,3 @@ st.download_button(
     mime="text/csv",
 )
 panel_close()
-
