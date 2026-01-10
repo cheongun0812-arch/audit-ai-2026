@@ -6,20 +6,18 @@ from datetime import datetime
 # =========================================================
 # 0) BUILD INFO
 # =========================================================
-BUILD = "v2.2"
+BUILD = "v2.2"  # 우측 BUILD 박스에 표시
 
 # =========================================================
 # 1) PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
 
-
 # =========================================================
-# 2) CSS (핵심 수정)
-#   - ❌ stToolbar/stHeader display:none 제거 (사이드바 토글 버튼이 여기서 렌더링됨)
-#   - ✅ 사이드바 토글 버튼은 강제로 항상 보이게 + 클릭 가능
-#   - ✅ FileUploader/Selectbox 텍스트 흐림(blur/opacity) 강제 해제
-#   - ✅ 빌드번호 타이틀 오른쪽 박스 표시
+# 2) CSS (배지 제거 / 사이드바 토글 복구 / 가독성 강제)
+#   - ❌ header/toolbar 숨김 제거(토글 버튼이 여기서 렌더링되는 버전들이 있음)
+#   - ✅ 사이드바 토글(<< / >>) 버튼: fixed + z-index + pointer-events
+#   - ✅ 업로더/셀렉트 텍스트: blur/opacity/filter 제거 + 색상 강제
 # =========================================================
 st.markdown(
     f"""
@@ -46,12 +44,11 @@ st.markdown(
 }}
 h1,h2,h3,h4{{ color: var(--text) !important; }}
 
-/* ✅ 상단 여백만 줄이고, toolbar/header는 숨기지 않음 (토글 버튼 살리기 핵심) */
+/* 상단 여백만 조정 */
 div.block-container{{ padding-top: 10px !important; }}
 
 /* =========================================================
    ✅ 사이드바 토글 버튼(<< / >>) 무조건 표시 + 클릭 가능
-   - display/visibility/opacity/pointer-events 강제
    ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
@@ -159,7 +156,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 .panel-title{{ font-weight: 900; margin: 0 0 10px 0; font-size: 14px; letter-spacing: .2px; }}
 .panel-sub{{ color: var(--muted2); font-size: 12px; margin: -6px 0 10px 0; }}
-
 .soft-line{{
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(214,178,94,.35), transparent);
@@ -167,7 +163,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 
 /* =========================================================
-   ✅ 흐림(blur) / 투명(opacity) 강제 제거: 업로더/셀렉트/버튼 전체 커버
+   ✅ 핵심: 업로더/셀렉트/버튼 내부 "흐림" 제거
    ========================================================= */
 [data-testid="stFileUploader"] *,
 div[data-baseweb="select"] *,
@@ -179,7 +175,7 @@ button * {{
   text-shadow: none !important;
 }}
 
-/* ===== Selectbox 선명화 (선택값/placeholder 포함) ===== */
+/* ===== Selectbox ===== */
 div[data-baseweb="select"] > div{{
   background-color: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -190,14 +186,8 @@ div[data-baseweb="select"] input{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
   opacity: 1 !important;
+  font-weight: 650 !important; /* 더 또렷 */
 }}
-/* placeholder가 흐리게 보이는 케이스 방지 */
-div[data-baseweb="select"] [data-testid="stMarkdownContainer"] *{{
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
-  opacity: 1 !important;
-}}
-
 div[role="listbox"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -208,9 +198,10 @@ div[role="listbox"] span{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
   opacity: 1 !important;
+  font-weight: 650 !important;
 }}
 
-/* ===== FileUploader 선명화 (dropzone/버튼/파일카드) ===== */
+/* ===== FileUploader ===== */
 [data-testid="stFileUploader"]{{
   background: var(--panel2) !important;
   border: 1px dashed rgba(214,178,94,.55) !important;
@@ -229,20 +220,21 @@ div[role="listbox"] span{{
   opacity: 1 !important;
 }}
 
-/* Browse files 버튼 대비/텍스트 선명 */
+/* Browse files 버튼 대비 + 선명 텍스트 */
 [data-testid="stFileUploader"] button{{
   border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.75) !important;
-  background: rgba(214,178,94,.22) !important;
+  border: 1px solid rgba(214,178,94,.85) !important;
+  background: rgba(214,178,94,.24) !important;
 }}
 [data-testid="stFileUploader"] button,
 [data-testid="stFileUploader"] button *{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
   opacity: 1 !important;
+  font-weight: 750 !important;
 }}
 
-/* 업로드된 파일 정보(파일명/용량) 선명 */
+/* 업로드된 파일 정보 선명 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
@@ -266,21 +258,9 @@ div[data-testid="stFileUploaderFile"]{{
   box-shadow: 0 8px 18px rgba(0,0,0,.25);
 }}
 </style>
-
-<!-- ✅ CSS 반영 확인 배지 -->
-<div style="
- position:fixed; top:10px; left:10px; z-index:999999;
- padding:6px 10px; border-radius:10px;
- font-size:12px; font-weight:900; letter-spacing:.2px;
- background:rgba(214,178,94,.18);
- border:1px solid rgba(214,178,94,.55);
- color:#D6B25E;">
- CSS LOADED • UI FIX {BUILD}
-</div>
 """,
     unsafe_allow_html=True
 )
-
 
 # =========================================================
 # 3) UI helpers
@@ -356,6 +336,7 @@ class AuditSystem:
 
         df["P_AMT"] = AuditSystem._parse_amount(df[amt_col])
         df["P_DT"] = pd.to_datetime(df[dt_col], errors="coerce")
+        df["P_DATE"] = df["P_DT"].dt.date
         df["P_HOUR"] = df["P_DT"].dt.hour
 
         if "사용자" not in mapping:
@@ -397,6 +378,7 @@ class AuditSystem:
         features = {
             "user_col": mapping["사용자"],
             "merchant_col": merchant_col,
+            "amt_col": amt_col,
             "dt_col": dt_col,
             "rule_cols": {"night": "F_NIGHT", "high": "F_HIGH", "suspicious": "F_SUSPICIOUS"},
         }
@@ -426,7 +408,6 @@ st.markdown(
 
 soft_divider()
 
-
 # =========================================================
 # 6) SIDEBAR
 # =========================================================
@@ -437,7 +418,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("## 🔍 위장 의심 키워드")
+    st.markdown("## 🔍 위장 의심 키워드(사용자 정의)")
     keywords_text = st.text_area(
         "쉼표(,)로 구분해서 입력",
         value="유통, 기획, 네트웍스, 컨설팅, 종합",
@@ -470,12 +451,11 @@ panel_close()
 
 if not uploaded_file:
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일 업로드 후 분석이 시작됩니다. (업로더/시트 선택 텍스트는 기본 선명 표시)")
+    st.info("파일을 업로드하면 분석이 시작됩니다. (업로더/시트 선택 텍스트는 기본 선명 표시)")
     panel_close()
     st.stop()
 
 soft_divider()
-
 
 # =========================================================
 # 8) Load + Analyze
@@ -485,7 +465,7 @@ try:
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_names = excel_file.sheet_names
 
-        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
+        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. (선택값이 흐려지지 않도록 기본 선명 표시)")
         selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("📝 데이터가 있는 시트를 선택하세요", sheet_names)
         panel_close()
 
@@ -532,7 +512,6 @@ except Exception as e:
 
 soft_divider()
 
-
 # =========================================================
 # 9) Dashboard
 # =========================================================
@@ -551,4 +530,127 @@ with c3:
     st.metric("주의(≥40)", f"{mid_cnt:,}건")
 with c4:
     st.metric("심야(룰)", f"{night_cnt:,}건")
+panel_close()
+
+soft_divider()
+
+# =========================================================
+# 10) Tables
+# =========================================================
+rule_cols = features["rule_cols"]
+user_col = features["user_col"]
+merchant_col = features["merchant_col"]
+dt_col = features["dt_col"]
+
+display_cols = [user_col, merchant_col, "P_AMT", dt_col, "risk_score", "violation"]
+
+def filtered_view(base: pd.DataFrame, mode: str) -> pd.DataFrame:
+    df = base.copy()
+    if mode == "night":
+        df = df[df[rule_cols["night"]] == True]
+    elif mode == "high":
+        df = df[df[rule_cols["high"]] == True]
+    elif mode == "suspicious":
+        df = df[df[rule_cols["suspicious"]] == True]
+    df = df[df["risk_score"] >= int(min_score)]
+    return df.sort_values("risk_score", ascending=False)
+
+def render_table(df: pd.DataFrame):
+    if df.empty:
+        st.info("조건에 해당하는 데이터가 없습니다.")
+        return
+    st.data_editor(
+        df[display_cols],
+        column_config={
+            "risk_score": st.column_config.ProgressColumn("위험점수", min_value=0, max_value=100, format="%d점"),
+            "P_AMT": st.column_config.NumberColumn("결제금액", format="%d원"),
+            "violation": st.column_config.TextColumn("위반 사유"),
+        },
+        use_container_width=True,
+        hide_index=True,
+        disabled=True,
+    )
+
+panel_open("④ 정밀 검토 리스트", "전체/심야/고액/키워드 의심을 탭으로 분리하여 검토 효율을 높입니다.")
+tab_all, tab_night, tab_high, tab_susp = st.tabs(["전체", "🌙 심야", "💰 고액", "🔍 키워드 의심"])
+with tab_all:
+    render_table(filtered_view(df_analyzed, "all"))
+with tab_night:
+    render_table(filtered_view(df_analyzed, "night"))
+with tab_high:
+    render_table(filtered_view(df_analyzed, "high"))
+with tab_susp:
+    render_table(filtered_view(df_analyzed, "suspicious"))
+panel_close()
+
+soft_divider()
+
+# =========================================================
+# 11) Charts (matplotlib 없이)
+# =========================================================
+panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
+chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
+
+colA, colB = st.columns(2)
+with colA:
+    st.markdown("**위험점수 분포**")
+    if chart_df.empty:
+        st.info("차트를 그릴 데이터가 없습니다.")
+    else:
+        bins = pd.cut(chart_df["risk_score"], bins=list(range(0, 105, 5)), right=False)
+        hist = bins.value_counts().sort_index()
+        hist_df = hist.reset_index()
+        hist_df.columns = ["score_bin", "count"]
+        hist_df["score_bin"] = hist_df["score_bin"].astype(str)
+        st.bar_chart(hist_df.set_index("score_bin"))
+
+with colB:
+    st.markdown("**시간대별 거래 건수**")
+    if chart_df.empty:
+        st.info("차트를 그릴 데이터가 없습니다.")
+    else:
+        hour_counts = chart_df["P_HOUR"].dropna().astype(int).value_counts().sort_index()
+        st.bar_chart(hour_counts)
+
+r1, r2, r3 = st.columns(3)
+with r1:
+    st.metric("🌙 심야", f"{int(df_analyzed['F_NIGHT'].sum()):,}건")
+with r2:
+    st.metric("💰 고액", f"{int(df_analyzed['F_HIGH'].sum()):,}건")
+with r3:
+    st.metric("🔍 키워드 의심", f"{int(df_analyzed['F_SUSPICIOUS'].sum()):,}건")
+panel_close()
+
+soft_divider()
+
+# =========================================================
+# 12) Download
+# =========================================================
+panel_open("⑥ 보고서 다운로드", "필터 적용/미적용 범위를 선택하여 CSV로 내려받습니다.")
+download_mode = st.selectbox(
+    "다운로드 범위 선택",
+    ["현재(전체 기준)", "심야만", "고액만", "키워드 의심만", "원본+분석 전체(필터 미적용)"],
+)
+
+if download_mode == "현재(전체 기준)":
+    out_df = filtered_view(df_analyzed, "all")
+elif download_mode == "심야만":
+    out_df = filtered_view(df_analyzed, "night")
+elif download_mode == "고액만":
+    out_df = filtered_view(df_analyzed, "high")
+elif download_mode == "키워드 의심만":
+    out_df = filtered_view(df_analyzed, "suspicious")
+else:
+    out_df = df_analyzed.copy()
+
+remove_temp = st.checkbox("임시 컬럼(_P_*) 제거 후 다운로드", value=True)
+final_out = out_df.drop(columns=[c for c in out_df.columns if c.startswith("_P_")], errors="ignore") if remove_temp else out_df
+
+csv_bytes = final_out.to_csv(index=False).encode("utf-8-sig")
+st.download_button(
+    label="⬇️ CSV 다운로드",
+    data=csv_bytes,
+    file_name=f"Audit_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+    mime="text/csv",
+)
 panel_close()
