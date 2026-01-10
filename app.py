@@ -6,18 +6,15 @@ from datetime import datetime
 # =========================================================
 # 0) BUILD INFO
 # =========================================================
-BUILD = "v2.2"  # 우측 BUILD 박스에 표시
+BUILD = "v2.3"
 
 # =========================================================
 # 1) PAGE CONFIG
 # =========================================================
-st.set_page_config(page_title="2026 AUDIT AI PORTAL", layout="wide")
+st.set_page_config(page_title="2026 AUDIT (corporate card risk) AI PORTAL", layout="wide")
 
 # =========================================================
-# 2) CSS (배지 제거 / 사이드바 토글 복구 / 가독성 강제)
-#   - ❌ header/toolbar 숨김 제거(토글 버튼이 여기서 렌더링되는 버전들이 있음)
-#   - ✅ 사이드바 토글(<< / >>) 버튼: fixed + z-index + pointer-events
-#   - ✅ 업로더/셀렉트 텍스트: blur/opacity/filter 제거 + 색상 강제
+# 2) CSS (상단 여백 + 타이틀 잘림 방지 + 좌/우 배치 미관 유지)
 # =========================================================
 st.markdown(
     f"""
@@ -44,11 +41,15 @@ st.markdown(
 }}
 h1,h2,h3,h4{{ color: var(--text) !important; }}
 
-/* 상단 여백만 조정 */
-div.block-container{{ padding-top: 10px !important; }}
+/* ✅ 상단 잘림 방지: 위쪽 패딩을 넉넉히 확보 */
+div.block-container{{
+  padding-top: 42px !important;  /* ← 타이틀 잘림 개선 핵심 */
+  padding-bottom: 26px !important;
+}}
 
 /* =========================================================
-   ✅ 사이드바 토글 버튼(<< / >>) 무조건 표시 + 클릭 가능
+   ✅ 사이드바 토글 버튼(<< / >>) 항상 표시 + 클릭 가능
+   - 타이틀과 겹치지 않도록 살짝 아래로 내림
    ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
@@ -57,7 +58,7 @@ button[data-testid="stSidebarCollapsedControl"],
 [data-testid="stSidebarCollapseButton"],
 button[data-testid="stSidebarCollapseButton"]{{
   position: fixed !important;
-  top: 12px !important;
+  top: 18px !important;    /* 12px -> 18px */
   left: 12px !important;
   z-index: 999999 !important;
   opacity: 1 !important;
@@ -114,7 +115,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   border-radius: 18px;
   padding: 18px 22px;
   box-shadow: var(--shadow);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }}
 .hero-row{{
   display:flex;
@@ -133,6 +134,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 .hero-title{{ font-size: 26px; font-weight: 900; letter-spacing: .3px; margin: 0; }}
 .hero-sub{{ margin-top: 6px; color: var(--muted); font-size: 13px; }}
+
 .build-box{{
   padding: 8px 12px;
   border-radius: 12px;
@@ -156,15 +158,14 @@ button[data-testid="stSidebarCollapseButton"] svg{{
 }}
 .panel-title{{ font-weight: 900; margin: 0 0 10px 0; font-size: 14px; letter-spacing: .2px; }}
 .panel-sub{{ color: var(--muted2); font-size: 12px; margin: -6px 0 10px 0; }}
+
 .soft-line{{
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(214,178,94,.35), transparent);
   margin: 14px 0;
 }}
 
-/* =========================================================
-   ✅ 핵심: 업로더/셀렉트/버튼 내부 "흐림" 제거
-   ========================================================= */
+/* ✅ 흐림/투명 제거 */
 [data-testid="stFileUploader"] *,
 div[data-baseweb="select"] *,
 div[role="listbox"] *,
@@ -186,7 +187,7 @@ div[data-baseweb="select"] input{{
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
   opacity: 1 !important;
-  font-weight: 650 !important; /* 더 또렷 */
+  font-weight: 650 !important;
 }}
 div[role="listbox"]{{
   background: var(--panel2) !important;
@@ -219,8 +220,6 @@ div[role="listbox"] span{{
   -webkit-text-fill-color: var(--muted) !important;
   opacity: 1 !important;
 }}
-
-/* Browse files 버튼 대비 + 선명 텍스트 */
 [data-testid="stFileUploader"] button{{
   border-radius: 12px !important;
   border: 1px solid rgba(214,178,94,.85) !important;
@@ -233,8 +232,6 @@ div[role="listbox"] span{{
   opacity: 1 !important;
   font-weight: 750 !important;
 }}
-
-/* 업로드된 파일 정보 선명 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
@@ -386,7 +383,7 @@ class AuditSystem:
 
 
 # =========================================================
-# 5) HERO
+# 5) HERO (타이틀 변경)
 # =========================================================
 st.markdown(
     f"""
@@ -395,8 +392,8 @@ st.markdown(
     <div class="hero-left">
       <div class="badge">🛡️</div>
       <div>
-        <div class="hero-title">2026 AUDIT AI PORTAL</div>
-        <div class="hero-sub">통합 감사 데이터 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
+        <div class="hero-title">2026 AUDIT (corporate card risk) AI PORTAL</div>
+        <div class="hero-sub">법인카드 리스크 기반 감사 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
       </div>
     </div>
     <div class="build-box">BUILD {BUILD}</div>
@@ -443,34 +440,56 @@ with st.sidebar:
 
 
 # =========================================================
-# 7) Upload
+# 7) MAIN: 업로드 / 시트선택을 좌우 배치로 정리
 # =========================================================
-panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 자동으로 시트 선택/분석이 진행됩니다.")
-uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
-panel_close()
+colL, colR = st.columns([1.25, 1.0], gap="large")
+
+with colL:
+    panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 분석이 진행됩니다.")
+    uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
+    panel_close()
+
+with colR:
+    # 업로드 전: 우측에 안내만 (불필요한 큰 창 남발 방지)
+    if not uploaded_file:
+        panel_open("② 시트 선택", "파일 업로드 후, 시트를 선택할 수 있습니다.")
+        st.info("좌측에서 파일을 업로드하세요.")
+        panel_close()
 
 if not uploaded_file:
+    soft_divider()
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일을 업로드하면 분석이 시작됩니다. (업로더/시트 선택 텍스트는 기본 선명 표시)")
+    st.info("파일을 업로드하면 분석이 시작됩니다.")
     panel_close()
     st.stop()
 
-soft_divider()
-
 # =========================================================
-# 8) Load + Analyze
+# 8) Load + Sheet selection (우측 컬럼에서 진행)
 # =========================================================
 try:
+    selected_sheet = None
+
     if uploaded_file.name.lower().endswith(".xlsx"):
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_names = excel_file.sheet_names
 
-        panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. (선택값이 흐려지지 않도록 기본 선명 표시)")
-        selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("📝 데이터가 있는 시트를 선택하세요", sheet_names)
-        panel_close()
+        with colR:
+            panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
+            selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox(
+                "📝 데이터가 있는 시트를 선택하세요",
+                sheet_names
+            )
+            panel_close()
 
         df_raw = excel_file.parse(selected_sheet)
+
     else:
+        # CSV는 시트가 없으므로 우측에 “시트 없음” 안내만 표시
+        with colR:
+            panel_open("② 시트 선택", "CSV 파일은 시트 선택이 필요 없습니다.")
+            st.success("CSV 업로드 완료: 시트 선택 단계 생략")
+            panel_close()
+
         try:
             df_raw = pd.read_csv(uploaded_file, encoding="utf-8-sig")
         except Exception:
@@ -487,6 +506,7 @@ try:
 
     missing = [k for k in ["가맹점", "금액", "일시"] if k not in mapping]
     if missing:
+        soft_divider()
         panel_open("필수 컬럼 확인", "현재 파일은 분석에 필요한 컬럼 매핑이 되지 않습니다.")
         st.error("필수 컬럼을 찾을 수 없습니다.")
         st.write("누락:", ", ".join(missing))
@@ -505,6 +525,7 @@ try:
     )
 
 except Exception as e:
+    soft_divider()
     panel_open("처리 오류", "데이터 처리 중 예외가 발생했습니다.")
     st.error(f"⚠️ 처리 중 오류: {e}")
     panel_close()
@@ -654,3 +675,4 @@ st.download_button(
     mime="text/csv",
 )
 panel_close()
+
