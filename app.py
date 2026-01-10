@@ -6,7 +6,7 @@ from datetime import datetime
 # =========================================================
 # 0) BUILD INFO
 # =========================================================
-BUILD = "v2.5"
+BUILD = "v2.6"
 
 # =========================================================
 # 1) PAGE CONFIG
@@ -15,10 +15,9 @@ st.set_page_config(page_title="2026 AUDIT (corporate card risk) AI PORTAL", layo
 
 # =========================================================
 # 2) CSS
-#   - 상단 여백 더 확보 (타이틀 잘림 방지)
-#   - 메인 영역: 업로더/선택값 "화이트 배경 + 검정 텍스트"로 가독성 100%
-#   - 사이드바: 다크 톤(어두운 배경 + 밝은 텍스트)로 강제 복구  ✅(이번 요청 핵심)
-#   - 사이드바 토글 버튼 항상 보이게
+#   - (유지) 상단 여백 / 메인 가독성 / 사이드바 가독성 / 토글 버튼
+#   - (추가) ✅ 사이드바 number_input의 (-,+) 스피너 버튼 색상 가시화(파랑)
+#   - (추가) ✅ 상단을 약 10mm 더 내림 (padding-top 64 -> 88)
 # =========================================================
 st.markdown(
     f"""
@@ -35,15 +34,18 @@ st.markdown(
   --gold:#D6B25E;
   --shadow: 0 10px 24px rgba(0,0,0,.35);
 
-  /* 메인 입력(화이트) 팔레트 */
   --mainInputBg: #F4F6FB;
   --mainInputText: #111827;
   --mainInputSub: #374151;
 
-  /* 사이드바 입력(다크) 팔레트 */
   --sideInputBg: #0E1117;
   --sideInputText: #EDEFF4;
   --sideInputSub: #B9C2D6;
+
+  /* ✅ 스피너 버튼 포인트(파랑/빨강 중 선택 가능) */
+  --spinBg: #2563EB;     /* 파랑 */
+  --spinBgHover: #1D4ED8;
+  --spinText: #FFFFFF;
 }}
 
 .stApp{{
@@ -55,14 +57,14 @@ st.markdown(
 }}
 h1,h2,h3,h4{{ color: var(--text) !important; }}
 
-/* ✅ 상단 전체를 더 아래로 */
+/* ✅ 상단을 약 10mm 더 내림 */
 div.block-container{{
-  padding-top: 64px !important;
+  padding-top: 88px !important; /* 64 -> 88 */
   padding-bottom: 26px !important;
 }}
 
 /* =========================================================
-   ✅ 사이드바 토글 버튼(<< / >>) 항상 표시 + 클릭 가능
+   ✅ 사이드바 토글 버튼(<< / >>)
    ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
@@ -120,8 +122,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   -webkit-text-fill-color: var(--muted) !important;
 }}
 
-/* ✅✅✅ 사이드바 "입력 박스" 가독성 복구 (이번 요청 핵심)
-   - 메인에서 적용한 화이트 입력 스타일이 사이드바로 번지는 것을 "오버라이드" */
+/* ✅ 사이드바 입력 박스(텍스트) 다크 유지 */
 [data-testid="stSidebar"] input,
 [data-testid="stSidebar"] textarea{{
   background: var(--sideInputBg) !important;
@@ -136,7 +137,7 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   -webkit-text-fill-color: var(--sideInputSub) !important;
 }}
 
-/* 사이드바의 selectbox도 다크로 강제 */
+/* ✅ 사이드바 selectbox 다크 유지 */
 [data-testid="stSidebar"] div[data-baseweb="select"] > div{{
   background: var(--sideInputBg) !important;
   border: 1px solid var(--border2) !important;
@@ -146,6 +147,30 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   color: var(--sideInputText) !important;
   -webkit-text-fill-color: var(--sideInputText) !important;
   font-weight: 700 !important;
+}}
+
+/* ✅✅✅ 이번 요청 핵심: 사이드바 number_input의 (-/+) 스피너 버튼 색상 지정
+   - Streamlit은 baseweb NumberInput을 사용 → spinner 버튼은 보통 svg/icon으로 구성
+   - 사이드바 영역에서만 적용 (메인에는 영향 없음)
+*/
+[data-testid="stSidebar"] div[data-baseweb="input"] button{{
+  background: var(--spinBg) !important;
+  border: 1px solid rgba(255,255,255,.15) !important;
+  border-radius: 10px !important;
+  opacity: 1 !important;
+}}
+[data-testid="stSidebar"] div[data-baseweb="input"] button:hover{{
+  background: var(--spinBgHover) !important;
+}}
+[data-testid="stSidebar"] div[data-baseweb="input"] button svg{{
+  fill: var(--spinText) !important;
+  stroke: var(--spinText) !important;
+  opacity: 1 !important;
+}}
+/* 버튼이 너무 작게 느껴지면 클릭 영역 확장 */
+[data-testid="stSidebar"] div[data-baseweb="input"] button{{
+  min-width: 32px !important;
+  min-height: 32px !important;
 }}
 
 /* ===== Hero ===== */
@@ -203,7 +228,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   margin: 14px 0;
 }}
 
-/* ✅ blur/opacity 제거 */
 [data-testid="stFileUploader"] *,
 div[data-baseweb="select"] *,
 div[role="listbox"] *,
@@ -213,11 +237,6 @@ button * {{
   opacity: 1 !important;
   text-shadow: none !important;
 }}
-
-/* =========================================================
-   ✅ 메인 영역 입력(파일 업로더/시트 선택) 가독성: 화이트+검정
-   - 사이드바는 위에서 별도 오버라이드로 다크 유지
-   ========================================================= */
 
 /* 메인 selectbox(선택값) */
 div[data-baseweb="select"] > div{{
@@ -232,8 +251,7 @@ div[data-baseweb="select"] input{{
   opacity: 1 !important;
   font-weight: 800 !important;
 }}
-
-/* 드롭다운 리스트는 다크 유지 */
+/* 드롭다운 리스트는 다크 */
 div[role="listbox"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -247,7 +265,7 @@ div[role="listbox"] span{{
   font-weight: 650 !important;
 }}
 
-/* 메인 업로더 박스 */
+/* 메인 업로더 */
 [data-testid="stFileUploader"]{{
   background: var(--mainInputBg) !important;
   border: 1px dashed rgba(214,178,94,.75) !important;
@@ -265,8 +283,6 @@ div[role="listbox"] span{{
   -webkit-text-fill-color: var(--mainInputSub) !important;
   opacity: 1 !important;
 }}
-
-/* Browse files 버튼 */
 [data-testid="stFileUploader"] button{{
   border-radius: 12px !important;
   border: 1px solid rgba(214,178,94,.95) !important;
@@ -279,8 +295,6 @@ div[role="listbox"] span{{
   opacity: 1 !important;
   font-weight: 900 !important;
 }}
-
-/* 업로드된 파일명/용량 선명 */
 div[data-testid="stFileUploaderFile"],
 div[data-testid="stFileUploaderFile"] *,
 div[data-testid="stFileUploaderFileName"],
@@ -296,7 +310,6 @@ div[data-testid="stFileUploaderFile"]{{
   border-radius: 12px !important;
 }}
 
-/* ===== DataFrame ===== */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"]{{
   border: 1px solid var(--border) !important;
   border-radius: 14px !important;
@@ -654,7 +667,7 @@ panel_close()
 soft_divider()
 
 # =========================================================
-# 11) Charts (matplotlib 없이)
+# 11) Charts
 # =========================================================
 panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
 chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
