@@ -45,7 +45,7 @@ st.markdown("""
         margin-bottom: 25px;
     }
     
-    /* 지표(Metric) 박스: 배경 흰색 + 글씨 어두운색 (보색대비 최상) */
+    /* 지표(Metric) 박스: 배경 흰색 + 글씨 어두운색 */
     [data-testid="stMetric"] {
         background: #FFFFFF;
         border-radius: 10px;
@@ -57,9 +57,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 2) 실무 맞춤형 분석 엔진 (30분 연속결제 + 금지업종)
+# 2) 실무 맞춤형 분석 엔진 (30분 규칙 제외 버전)
 # =========================================================
-class AuditEngineV5:
+class AuditEngineV5_1:
     @staticmethod
     def run_analysis(df, keywords):
         # 업로드 데이터 컬럼 기준 매핑
@@ -80,12 +80,10 @@ class AuditEngineV5:
         pattern = "|".join([re.escape(k.strip()) for k in keywords if k.strip()])
         df['F_RESTRICT'] = df[m_col].astype(str).str.contains(pattern, case=False, na=False)
         
-        # 4. 동일가맹점 30분 이내 결제 (요청하신 30분 규칙)
-        df = df.sort_values(by=[u_col, m_col, 'P_DT'])
-        df['time_diff'] = df.groupby([u_col, m_col])['P_DT'].diff().dt.total_seconds() / 60
-        df['F_SPLIT'] = (df['time_diff'] > 0) & (df['time_diff'] <= 30)
+        # ✅ [수정] 30분 연속 결제 로직 완전 제거
 
-        df['IS_VIOLATION'] = df[['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT', 'F_SPLIT']].any(axis=1)
+        # 종합 판정 (심야, 휴일, 금지업종만 반영)
+        df['IS_VIOLATION'] = df[['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT']].any(axis=1)
         
         reasons = []
         for _, row in df.iterrows():
@@ -93,7 +91,6 @@ class AuditEngineV5:
             if row['F_NIGHT']: r.append("🌙심야")
             if row['F_WEEKEND']: r.append("📅휴일")
             if row['F_RESTRICT']: r.append("🚫금지업종")
-            if row['F_SPLIT']: r.append("🕒30분연속")
             reasons.append(" / ".join(r))
         df['검토사유'] = reasons
         return df
@@ -104,7 +101,7 @@ class AuditEngineV5:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0;">🛡️ Corporate Card Audit AI</h1>
-    <p style="color:#FFD700; margin:5px 0 0 0;">임원·직책자·공용카드 준법 감시 시스템 v5.0</p>
+    <p style="color:#FFD700; margin:5px 0 0 0;">실무 최적화 준법 감시 시스템 v5.1 (분할결제 제외 반영)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -124,16 +121,15 @@ uploaded_file = st.file_uploader("법인카드 내역 파일 업로드", type=['
 
 if uploaded_file:
     df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-    engine = AuditEngineV5()
+    engine = AuditEngineV5_1()
     df_final = engine.run_analysis(df_raw, keywords)
     viol_df = df_final[df_final['IS_VIOLATION']]
     
-    # 지표 요약
-    c1, c2, c3, c4 = st.columns(4)
+    # 지표 요약 (연속결제 항목 제거)
+    c1, c2, c3 = st.columns(3)
     c1.metric("🔍 총 검토 내역", f"{len(df_final):,}건")
     c2.metric("🚨 검토 필요 건", f"{len(viol_df):,}건")
-    c3.metric("🕒 30분내 연속결제", f"{df_final['F_SPLIT'].sum():,}건")
-    c4.metric("💰 검토 금액 합계", f"{viol_df['P_AMT'].sum():,.0f}원")
+    c3.metric("💰 검토 금액 합계", f"{viol_df['P_AMT'].sum():,.0f}원")
 
     st.markdown("---")
     
@@ -143,7 +139,6 @@ if uploaded_file:
         st.dataframe(viol_df[['사용자', '가맹점', 'P_AMT', 'P_DT', '검토사유']], use_container_width=True, hide_index=True)
 
     with tab2:
-        # ✅ 메인 화면 어두운 배경에 맞게 텍스트를 밝은색(White)으로 설정
         st.markdown('<p class="main-white-text">👤 사용자별 추출 건수 (그래프 클릭 시 하단 상세 표시)</p>', unsafe_allow_html=True)
         
         user_stats = viol_df.groupby('사용자').size().reset_index(name='건수').sort_values('건수', ascending=False)
@@ -152,10 +147,9 @@ if uploaded_file:
         
         if sel and sel.get("selection") and sel["selection"]["points"]:
             user = sel["selection"]["points"][0]["x"]
-            # ✅ 상세 내역 헤더를 밝은 노란색(Gold)으로 강조하여 눈에 띄게 함
             st.markdown(f'<h3 style="color:#FFD700 !important; margin-top:20px;">📄 {user} 님의 상세 내역</h3>', unsafe_allow_html=True)
             st.dataframe(viol_df[viol_df['사용자'] == user], use_container_width=True)
 
     # 전체 결과 다운로드
     csv_out = df_final.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 전체 분석 결과 다운로드 (CSV)", csv_out, "Audit_Result_v5.csv", use_container_width=True)
+    st.download_button("📥 전체 분석 결과 다운로드 (CSV)", csv_out, "Audit_Result_v5.1.csv", use_container_width=True)
