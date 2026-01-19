@@ -659,7 +659,7 @@ with tab_night:
 with tab_high:
     render_table(filtered_view(df_analyzed, "holiday"), "holiday")
 with tab_susp:
-    render_table(filtered_view(df_analyzed, "suspicious"))
+    render_table(filtered_view(df_analyzed, "suspicious"), "suspicious")
 panel_close()
 
 soft_divider()
@@ -733,4 +733,5 @@ st.download_button(
     mime="text/csv",
 )
 panel_close()
+
 
