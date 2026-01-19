@@ -1,23 +1,31 @@
 import streamlit as st
 import pandas as pd
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 # =========================================================
 # 0) BUILD INFO
 # =========================================================
-BUILD = "v2.6"
+BUILD = "v3.0-compliance-only"
+
+# =========================================================
+# Optional: KR holidays (공휴일 계산)
+#   - 설치 권장: pip install holidays
+# =========================================================
+HAS_HOLIDAYS_LIB = True
+try:
+    import holidays
+except Exception:
+    HAS_HOLIDAYS_LIB = False
+
 
 # =========================================================
 # 1) PAGE CONFIG
 # =========================================================
-st.set_page_config(page_title="2026 AUDIT (corporate card risk) AI PORTAL", layout="wide")
+st.set_page_config(page_title="2026 AUDIT (corporate card compliance) AI PORTAL", layout="wide")
 
 # =========================================================
-# 2) CSS
-#   - (유지) 상단 여백 / 메인 가독성 / 사이드바 가독성 / 토글 버튼
-#   - (추가) ✅ 사이드바 number_input의 (-,+) 스피너 버튼 색상 가시화(파랑)
-#   - (추가) ✅ 상단을 약 10mm 더 내림 (padding-top 64 -> 88)
+# 2) CSS (기존 디자인 유지)
 # =========================================================
 st.markdown(
     f"""
@@ -42,8 +50,7 @@ st.markdown(
   --sideInputText: #EDEFF4;
   --sideInputSub: #B9C2D6;
 
-  /* ✅ 스피너 버튼 포인트(파랑/빨강 중 선택 가능) */
-  --spinBg: #2563EB;     /* 파랑 */
+  --spinBg: #2563EB;
   --spinBgHover: #1D4ED8;
   --spinText: #FFFFFF;
 }}
@@ -57,15 +64,11 @@ st.markdown(
 }}
 h1,h2,h3,h4{{ color: var(--text) !important; }}
 
-/* ✅ 상단을 약 10mm 더 내림 */
 div.block-container{{
-  padding-top: 88px !important; /* 64 -> 88 */
+  padding-top: 88px !important;
   padding-bottom: 26px !important;
 }}
 
-/* =========================================================
-   ✅ 사이드바 토글 버튼(<< / >>)
-   ========================================================= */
 [data-testid="collapsedControl"],
 button[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
@@ -106,7 +109,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   opacity: 1 !important;
 }}
 
-/* ===== Sidebar Shell ===== */
 [data-testid="stSidebar"]{{
   background: linear-gradient(180deg, #0E1116 0%, #0A0C10 100%) !important;
   border-right: 1px solid var(--border) !important;
@@ -122,7 +124,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   -webkit-text-fill-color: var(--muted) !important;
 }}
 
-/* ✅ 사이드바 입력 박스(텍스트) 다크 유지 */
 [data-testid="stSidebar"] input,
 [data-testid="stSidebar"] textarea{{
   background: var(--sideInputBg) !important;
@@ -137,7 +138,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   -webkit-text-fill-color: var(--sideInputSub) !important;
 }}
 
-/* ✅ 사이드바 selectbox 다크 유지 */
 [data-testid="stSidebar"] div[data-baseweb="select"] > div{{
   background: var(--sideInputBg) !important;
   border: 1px solid var(--border2) !important;
@@ -149,10 +149,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   font-weight: 700 !important;
 }}
 
-/* ✅✅✅ 이번 요청 핵심: 사이드바 number_input의 (-/+) 스피너 버튼 색상 지정
-   - Streamlit은 baseweb NumberInput을 사용 → spinner 버튼은 보통 svg/icon으로 구성
-   - 사이드바 영역에서만 적용 (메인에는 영향 없음)
-*/
 [data-testid="stSidebar"] div[data-baseweb="input"] button{{
   background: var(--spinBg) !important;
   border: 1px solid rgba(255,255,255,.15) !important;
@@ -167,13 +163,11 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   stroke: var(--spinText) !important;
   opacity: 1 !important;
 }}
-/* 버튼이 너무 작게 느껴지면 클릭 영역 확장 */
 [data-testid="stSidebar"] div[data-baseweb="input"] button{{
   min-width: 32px !important;
   min-height: 32px !important;
 }}
 
-/* ===== Hero ===== */
 .hero{{
   background: linear-gradient(135deg, rgba(214,178,94,.15) 0%, rgba(214,178,94,.06) 30%, rgba(255,255,255,.03) 100%);
   border: 1px solid var(--border);
@@ -211,7 +205,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   white-space: nowrap;
 }}
 
-/* ===== Panels / Divider ===== */
 .panel{{
   background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.015) 100%), var(--panel);
   border: 1px solid var(--border);
@@ -228,17 +221,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
   margin: 14px 0;
 }}
 
-[data-testid="stFileUploader"] *,
-div[data-baseweb="select"] *,
-div[role="listbox"] *,
-button * {{
-  filter: none !important;
-  backdrop-filter: none !important;
-  opacity: 1 !important;
-  text-shadow: none !important;
-}}
-
-/* 메인 selectbox(선택값) */
 div[data-baseweb="select"] > div{{
   background-color: var(--mainInputBg) !important;
   border: 1px solid rgba(214,178,94,.55) !important;
@@ -251,7 +233,6 @@ div[data-baseweb="select"] input{{
   opacity: 1 !important;
   font-weight: 800 !important;
 }}
-/* 드롭다운 리스트는 다크 */
 div[role="listbox"]{{
   background: var(--panel2) !important;
   border: 1px solid var(--border2) !important;
@@ -265,7 +246,6 @@ div[role="listbox"] span{{
   font-weight: 650 !important;
 }}
 
-/* 메인 업로더 */
 [data-testid="stFileUploader"]{{
   background: var(--mainInputBg) !important;
   border: 1px dashed rgba(214,178,94,.75) !important;
@@ -276,38 +256,6 @@ div[role="listbox"] span{{
   color: var(--mainInputText) !important;
   -webkit-text-fill-color: var(--mainInputText) !important;
   opacity: 1 !important;
-}}
-[data-testid="stFileUploader"] small,
-[data-testid="stFileUploader"] label{{
-  color: var(--mainInputSub) !important;
-  -webkit-text-fill-color: var(--mainInputSub) !important;
-  opacity: 1 !important;
-}}
-[data-testid="stFileUploader"] button{{
-  border-radius: 12px !important;
-  border: 1px solid rgba(214,178,94,.95) !important;
-  background: rgba(214,178,94,.26) !important;
-}}
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] button *{{
-  color: var(--mainInputText) !important;
-  -webkit-text-fill-color: var(--mainInputText) !important;
-  opacity: 1 !important;
-  font-weight: 900 !important;
-}}
-div[data-testid="stFileUploaderFile"],
-div[data-testid="stFileUploaderFile"] *,
-div[data-testid="stFileUploaderFileName"],
-div[data-testid="stFileUploaderFileName"] *{{
-  color: var(--mainInputText) !important;
-  -webkit-text-fill-color: var(--mainInputText) !important;
-  opacity: 1 !important;
-  filter: none !important;
-}}
-div[data-testid="stFileUploaderFile"]{{
-  background: rgba(255,255,255,.75) !important;
-  border: 1px solid rgba(17,24,39,.18) !important;
-  border-radius: 12px !important;
 }}
 
 [data-testid="stDataFrame"], [data-testid="stDataEditor"]{{
@@ -336,11 +284,11 @@ def panel_close():
 def soft_divider():
     st.markdown('<div class="soft-line"></div>', unsafe_allow_html=True)
 
-
 # =========================================================
-# 4) Audit Engine
+# 4) Compliance Audit Engine
+#    - "운영기준 위반만" 식별 (심야/휴일/공휴일/제한·중점검토 업종)
 # =========================================================
-class AuditSystem:
+class ComplianceAudit:
     STANDARD_COLS = {
         "사용자": ["사용자", "성명", "이용자", "사원명", "성함", "User"],
         "가맹점": ["가맹점명", "거래처", "상호", "가맹점", "지점명", "Merchant", "Customer name"],
@@ -352,21 +300,12 @@ class AuditSystem:
     def get_standard_mapping(df: pd.DataFrame) -> dict:
         mapping = {}
         cols = [str(c).strip() for c in df.columns]
-        for key, aliases in AuditSystem.STANDARD_COLS.items():
+        for key, aliases in ComplianceAudit.STANDARD_COLS.items():
             for c in cols:
                 if c in aliases:
                     mapping[key] = c
                     break
         return mapping
-
-    @staticmethod
-    def _is_hour_in_range(hour: float, start: int, end: int) -> bool:
-        if pd.isna(hour):
-            return False
-        hour = int(hour)
-        if start <= end:
-            return start <= hour <= end
-        return (hour >= start) or (hour <= end)
 
     @staticmethod
     def _parse_amount(series: pd.Series) -> pd.Series:
@@ -379,70 +318,108 @@ class AuditSystem:
         return amt.abs().astype("int64")
 
     @staticmethod
-    def analyze_risk(
+    def _is_hour_in_range(hour: float, start: int, end: int) -> bool:
+        if pd.isna(hour):
+            return False
+        h = int(hour)
+        if start <= end:
+            return start <= h <= end
+        return (h >= start) or (h <= end)
+
+    @staticmethod
+    def _build_holiday_set_kr(years: list[int]) -> set[date]:
+        if not HAS_HOLIDAYS_LIB:
+            return set()
+        try:
+            kr = holidays.KR(years=years)
+            # keys are datetime.date
+            return set(kr.keys())
+        except Exception:
+            return set()
+
+    @staticmethod
+    def analyze(
         df: pd.DataFrame,
         mapping: dict,
         night_start: int,
         night_end: int,
-        high_amount_limit: int,
-        suspicious_keywords: list[str],
-        score_weights: dict,
+        include_weekend: bool,
+        include_public_holiday: bool,
+        restricted_keywords: list[str],
     ):
         df = df.copy()
         merchant_col = mapping["가맹점"]
         amt_col = mapping["금액"]
         dt_col = mapping["일시"]
 
-        df["P_AMT"] = AuditSystem._parse_amount(df[amt_col])
+        # Normalize
+        df["P_AMT"] = ComplianceAudit._parse_amount(df[amt_col])
         df["P_DT"] = pd.to_datetime(df[dt_col], errors="coerce")
         df["P_DATE"] = df["P_DT"].dt.date
         df["P_HOUR"] = df["P_DT"].dt.hour
+        df["P_MONTH"] = df["P_DT"].dt.to_period("M").astype(str)
 
+        # User missing -> "미지정"
         if "사용자" not in mapping:
             df["_P_USER"] = "미지정"
             mapping["사용자"] = "_P_USER"
 
-        df["F_NIGHT"] = df["P_HOUR"].apply(lambda h: AuditSystem._is_hour_in_range(h, night_start, night_end))
-        df["F_HIGH"] = df["P_AMT"] >= int(high_amount_limit)
+        # Night rule (23~06 default per standard)
+        df["F_NIGHT"] = df["P_HOUR"].apply(lambda h: ComplianceAudit._is_hour_in_range(h, night_start, night_end))
 
-        kw = [k.strip() for k in suspicious_keywords if str(k).strip()]
+        # Weekend rule
+        if include_weekend:
+            # weekday: Mon=0..Sun=6
+            df["F_WEEKEND"] = pd.to_datetime(df["P_DT"], errors="coerce").dt.weekday >= 5
+        else:
+            df["F_WEEKEND"] = False
+
+        # Public holiday rule
+        if include_public_holiday and HAS_HOLIDAYS_LIB:
+            years = sorted({d.year for d in df["P_DATE"].dropna().tolist() if isinstance(d, date)})
+            hset = ComplianceAudit._build_holiday_set_kr(years)
+            df["F_PUBHOL"] = df["P_DATE"].isin(hset)
+        else:
+            df["F_PUBHOL"] = False
+
+        # Restricted / focus-review industries (merchant-name keyword match)
+        kw = [k.strip() for k in restricted_keywords if str(k).strip()]
         if not kw:
-            df["F_SUSPICIOUS"] = False
+            df["F_RESTRICTED"] = False
         else:
             pattern = "|".join([re.escape(k) for k in kw])
-            df["F_SUSPICIOUS"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
+            df["F_RESTRICTED"] = df[merchant_col].astype(str).str.contains(pattern, case=False, na=False)
 
-        w_night = int(score_weights.get("night", 40))
-        w_high = int(score_weights.get("high", 30))
-        w_susp = int(score_weights.get("suspicious", 30))
-
-        df["risk_score"] = (
-            df["F_NIGHT"].astype(int) * w_night +
-            df["F_HIGH"].astype(int) * w_high +
-            df["F_SUSPICIOUS"].astype(int) * w_susp
-        )
-
+        # Build violation reasons (운영기준 위반만)
         def build_reasons(row):
             reasons = []
             if row["F_NIGHT"]:
-                reasons.append("🌙심야")
-            if row["F_HIGH"]:
-                reasons.append("💰고액")
-            if row["F_SUSPICIOUS"]:
-                reasons.append("🔍키워드의심")
-            return ", ".join(reasons)
+                reasons.append("🌙 심야(23~06)")
+            if row["F_WEEKEND"]:
+                reasons.append("📅 휴무일(주말)")
+            if row["F_PUBHOL"]:
+                reasons.append("🎌 공휴일")
+            if row["F_RESTRICTED"]:
+                reasons.append("🚫 제한/중점 업종(가맹점 키워드)")
+            return " / ".join(reasons)
 
-        df["violation"] = df.apply(build_reasons, axis=1)
+        df["violation_reason"] = df.apply(build_reasons, axis=1)
+        df["IS_VIOLATION"] = df["violation_reason"].astype(str).str.len() > 0
 
         features = {
             "user_col": mapping["사용자"],
             "merchant_col": merchant_col,
             "amt_col": amt_col,
             "dt_col": dt_col,
-            "rule_cols": {"night": "F_NIGHT", "high": "F_HIGH", "suspicious": "F_SUSPICIOUS"},
+            "rule_cols": {
+                "night": "F_NIGHT",
+                "weekend": "F_WEEKEND",
+                "pubhol": "F_PUBHOL",
+                "restricted": "F_RESTRICTED",
+                "any": "IS_VIOLATION",
+            },
         }
         return df, features
-
 
 # =========================================================
 # 5) HERO
@@ -454,8 +431,8 @@ st.markdown(
     <div class="hero-left">
       <div class="badge">🛡️</div>
       <div>
-        <div class="hero-title">2026 AUDIT (corporate card risk) AI PORTAL</div>
-        <div class="hero-sub">법인카드 리스크 기반 감사 분석 시스템 · Dignified UI Edition (다크톤/패널 구조/가독성 강화)</div>
+        <div class="hero-title">2026 AUDIT (corporate card compliance) AI PORTAL</div>
+        <div class="hero-sub">재원운영기준 기반 · 운영기준 위반(심야/휴무일/공휴일/제한·중점 업종)만 선별</div>
       </div>
     </div>
     <div class="build-box">BUILD {BUILD}</div>
@@ -468,38 +445,56 @@ st.markdown(
 soft_divider()
 
 # =========================================================
-# 6) SIDEBAR
+# 6) SIDEBAR (운영기준 중심)
 # =========================================================
+# 기본 제한 업종 키워드(문서의 업종명 그대로 반영)
+DEFAULT_RESTRICTED = [
+    # 유흥업종
+    "노래방", "단란주점", "유흥주점", "나이트클럽", "요정", "캬바레", "유흥",
+    # 위생업종(대인서비스 포함)
+    "찜질방", "목욕탕", "사우나", "안마", "안마시술소", "발마사지", "피부미용", "미용", "이용원",
+    "한의원", "한약방", "유사의료",
+    # 레저업종
+    "카지노", "헬스클럽", "총포",
+    # 상품권/면세점
+    "상품권", "면세점", "전자상거래상품권", "PG상품권", "오픈마켓상품권",
+    # 기타업종(예시들)
+    "귀금속", "시계", "자동차판매", "중고자동차", "오토바이", "성인용품", "동물병원",
+    "등록금", "학원", "보험", "관리비", "결혼서비스", "장의서비스", "독서실", "유학원", "담배자판기",
+    # 유통/쇼핑(예시)
+    "인터넷PG", "전자상거래PG", "인터넷종합", "종합Mall", "골프대행",
+]
+
 with st.sidebar:
-    st.markdown("## ⚙️ 감사 기준 설정")
-    night_range = st.slider("심야 시간 설정", 0, 23, (23, 6))
-    high_amount_limit = st.number_input("고액 기준(원)", value=500000, step=50000, min_value=0)
+    st.markdown("## ⚙️ 운영기준(Compliance) 룰")
+    st.caption("사용 주의 시간(기준): 23시~06시 / 휴무일·공휴일 사용 주의(사후 모니터링)")
+
+    # 문서 기준(23~06) 기본값
+    night_range = st.slider("심야 시간(주요 점검)", 0, 23, (23, 6))
+
+    include_weekend = st.checkbox("휴무일(주말) 위반으로 분류", value=True)
+    include_public_holiday = st.checkbox("공휴일 위반으로 분류(대한민국)", value=True)
+
+    if include_public_holiday and not HAS_HOLIDAYS_LIB:
+        st.warning("공휴일 자동판정: `pip install holidays` 설치 시 활성화됩니다. (미설치 시 공휴일 룰은 꺼집니다)")
 
     st.divider()
-
-    st.markdown("## 🔍 위장 의심 키워드(사용자 정의)")
-    keywords_text = st.text_area(
-        "쉼표(,)로 구분해서 입력",
-        value="유통, 기획, 네트웍스, 컨설팅, 종합",
-        height=90,
-        placeholder="예: 유통, 컨설팅, 네트웍스"
+    st.markdown("## 🚫 제한/중점검토 업종 키워드")
+    restricted_text = st.text_area(
+        "쉼표(,)로 구분해서 입력 (가맹점명에 포함되면 적발)",
+        value=", ".join(DEFAULT_RESTRICTED),
+        height=150,
     )
-    suspicious_keywords = [k.strip() for k in keywords_text.split(",") if k.strip()]
+    restricted_keywords = [k.strip() for k in restricted_text.split(",") if k.strip()]
 
     st.divider()
+    st.markdown("## 🧰 보기 옵션")
+    show_only_violations = st.checkbox("위반만 표시(추천)", value=True)
 
-    st.markdown("## 🧮 점수 가중치")
-    w_night = st.number_input("심야 가중치", value=40, step=5, min_value=0, max_value=100)
-    w_high = st.number_input("고액 가중치", value=30, step=5, min_value=0, max_value=100)
-    w_susp = st.number_input("키워드 의심 가중치", value=30, step=5, min_value=0, max_value=100)
-
-    st.divider()
-
-    st.markdown("## 🧰 출력/필터")
-    min_score = st.slider("표시 최소 위험점수", 0, 100, 40, step=5)
-
-    st.info("필수 컬럼: **가맹점(상호/거래처)**, **금액**, **일시**\n\n※ 사용자 컬럼이 없으면 **미지정**으로 표시됩니다.")
-
+    st.info(
+        "필수 컬럼: **가맹점**, **금액**, **일시**\n\n"
+        "※ 사용자 컬럼이 없으면 **미지정**으로 표시됩니다."
+    )
 
 # =========================================================
 # 7) MAIN: 업로드/시트선택 50:50
@@ -507,8 +502,8 @@ with st.sidebar:
 colL, colR = st.columns([1, 1], gap="large")
 
 with colL:
-    panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 분석이 진행됩니다.")
-    uploaded_file = st.file_uploader("가공된 파일을 업로드하세요.", type=["csv", "xlsx"])
+    panel_open("① 데이터 업로드", "XLSX 또는 CSV 업로드 후 운영기준 위반만 선별합니다.")
+    uploaded_file = st.file_uploader("카드 사용내역 파일을 업로드하세요.", type=["csv", "xlsx"])
     panel_close()
 
 with colR:
@@ -520,7 +515,7 @@ with colR:
 if not uploaded_file:
     soft_divider()
     panel_open("가이드", "업로드 전 단계입니다.")
-    st.info("파일을 업로드하면 분석이 시작됩니다.")
+    st.info("파일을 업로드하면 운영기준 위반 선별이 시작됩니다.")
     panel_close()
     st.stop()
 
@@ -535,7 +530,7 @@ try:
         sheet_names = excel_file.sheet_names
 
         with colR:
-            panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요. (선택값은 선명 표시)")
+            panel_open("② 시트 선택", "데이터가 포함된 시트를 선택하세요.")
             selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox(
                 "📝 데이터가 있는 시트를 선택하세요",
                 sheet_names
@@ -561,7 +556,7 @@ try:
         panel_close()
         st.stop()
 
-    audit = AuditSystem()
+    audit = ComplianceAudit()
     mapping = audit.get_standard_mapping(df_raw)
 
     missing = [k for k in ["가맹점", "금액", "일시"] if k not in mapping]
@@ -574,14 +569,14 @@ try:
         panel_close()
         st.stop()
 
-    df_analyzed, features = audit.analyze_risk(
+    df_analyzed, features = audit.analyze(
         df_raw,
         mapping=mapping,
         night_start=night_range[0],
         night_end=night_range[1],
-        high_amount_limit=high_amount_limit,
-        suspicious_keywords=suspicious_keywords,
-        score_weights={"night": w_night, "high": w_high, "suspicious": w_susp},
+        include_weekend=include_weekend,
+        include_public_holiday=include_public_holiday,
+        restricted_keywords=restricted_keywords,
     )
 
 except Exception as e:
@@ -594,23 +589,29 @@ except Exception as e:
 soft_divider()
 
 # =========================================================
-# 9) Dashboard
+# 9) Dashboard (운영기준 위반 중심)
 # =========================================================
-panel_open("③ 감사 요약 대시보드", "핵심 지표를 한 눈에 확인합니다.")
+panel_open("③ 운영기준 위반 요약 대시보드", "심야/휴무일/공휴일/제한업종 위반만 집계합니다.")
 total_cnt = len(df_analyzed)
-high_cnt = int((df_analyzed["risk_score"] >= 70).sum())
-mid_cnt = int((df_analyzed["risk_score"] >= 40).sum())
+viol_cnt = int(df_analyzed["IS_VIOLATION"].sum())
 night_cnt = int(df_analyzed["F_NIGHT"].sum())
+weekend_cnt = int(df_analyzed["F_WEEKEND"].sum())
+pubhol_cnt = int(df_analyzed["F_PUBHOL"].sum())
+rest_cnt = int(df_analyzed["F_RESTRICTED"].sum())
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 with c1:
-    st.metric("총 분석", f"{total_cnt:,}건")
+    st.metric("총 건수", f"{total_cnt:,}건")
 with c2:
-    st.metric("고위험(≥70)", f"{high_cnt:,}건")
+    st.metric("위반(전체)", f"{viol_cnt:,}건")
 with c3:
-    st.metric("주의(≥40)", f"{mid_cnt:,}건")
+    st.metric("🌙 심야", f"{night_cnt:,}건")
 with c4:
-    st.metric("심야(룰)", f"{night_cnt:,}건")
+    st.metric("📅 휴무일(주말)", f"{weekend_cnt:,}건")
+with c5:
+    st.metric("🎌 공휴일", f"{pubhol_cnt:,}건")
+with c6:
+    st.metric("🚫 제한/중점 업종", f"{rest_cnt:,}건")
 panel_close()
 
 soft_divider()
@@ -623,102 +624,110 @@ user_col = features["user_col"]
 merchant_col = features["merchant_col"]
 dt_col = features["dt_col"]
 
-display_cols = [user_col, merchant_col, "P_AMT", dt_col, "risk_score", "violation"]
+# 표시 컬럼: 운영기준 위반 확인에 필요한 최소 정보
+display_cols = [user_col, merchant_col, "P_AMT", dt_col, "P_MONTH", "violation_reason"]
 
 def filtered_view(base: pd.DataFrame, mode: str) -> pd.DataFrame:
     df = base.copy()
-    if mode == "night":
-        df = df[df[rule_cols["night"]] == True]
-    elif mode == "high":
-        df = df[df[rule_cols["high"]] == True]
-    elif mode == "suspicious":
-        df = df[df[rule_cols["suspicious"]] == True]
-    df = df[df["risk_score"] >= int(min_score)]
-    return df.sort_values("risk_score", ascending=False)
 
-def render_table(df, table_key: str):
+    if show_only_violations:
+        df = df[df["IS_VIOLATION"] == True]
+
+    if mode == "all":
+        pass
+    elif mode == "night":
+        df = df[df[rule_cols["night"]] == True]
+    elif mode == "weekend":
+        df = df[df[rule_cols["weekend"]] == True]
+    elif mode == "pubhol":
+        df = df[df[rule_cols["pubhol"]] == True]
+    elif mode == "restricted":
+        df = df[df[rule_cols["restricted"]] == True]
+
+    # 최신순 정렬
+    df = df.sort_values("P_DT", ascending=False, na_position="last")
+    return df
+
+def render_table(df: pd.DataFrame, table_key: str):
+    if df.empty:
+        st.info("조건에 해당하는 데이터가 없습니다.")
+        return
+
     st.data_editor(
         df[display_cols],
         column_config={
-            "risk_score": st.column_config.ProgressColumn("위험점수", min_value=0, max_value=100, format="%d점"),
             "P_AMT": st.column_config.NumberColumn("결제금액", format="%d원"),
-            "violation": st.column_config.TextColumn("위반 사유"),
+            "violation_reason": st.column_config.TextColumn("위반 사유"),
         },
         use_container_width=True,
         hide_index=True,
         disabled=True,
-        key=f"data_editor_{table_key}",
+        key=f"data_editor_{table_key}",  # ✅ DuplicateElementId 방지
     )
 
-panel_open("④ 정밀 검토 리스트", "전체/심야/고액/키워드 의심을 탭으로 분리하여 검토 효율을 높입니다.")
-tab_all, tab_night, tab_high, tab_susp = st.tabs(["전체", "🌙 심야", "💰 고액", "🔍 키워드 의심"])
-with tab_all:
-    render_table(filtered_view(df_analyzed, "night"), "night")
-with tab_night:
-     render_table(filtered_view(df_analyzed, "weekend"), "weekend")
-with tab_high:
-    render_table(filtered_view(df_analyzed, "holiday"), "holiday")
-with tab_susp:
-    render_table(filtered_view(df_analyzed, "suspicious"), "suspicious")
-panel_close()
-
-soft_divider()
-
-# =========================================================
-# 11) Charts
-# =========================================================
-panel_open("⑤ 시각화", "분포/시간대/룰 적발을 시각적으로 제공합니다.")
-chart_df = df_analyzed[df_analyzed["P_DT"].notna()].copy()
-
-colA, colB = st.columns(2)
-with colA:
-    st.markdown("**위험점수 분포**")
-    if chart_df.empty:
-        st.info("차트를 그릴 데이터가 없습니다.")
-    else:
-        bins = pd.cut(chart_df["risk_score"], bins=list(range(0, 105, 5)), right=False)
-        hist = bins.value_counts().sort_index()
-        hist_df = hist.reset_index()
-        hist_df.columns = ["score_bin", "count"]
-        hist_df["score_bin"] = hist_df["score_bin"].astype(str)
-        st.bar_chart(hist_df.set_index("score_bin"))
-
-with colB:
-    st.markdown("**시간대별 거래 건수**")
-    if chart_df.empty:
-        st.info("차트를 그릴 데이터가 없습니다.")
-    else:
-        hour_counts = chart_df["P_HOUR"].dropna().astype(int).value_counts().sort_index()
-        st.bar_chart(hour_counts)
-
-r1, r2, r3 = st.columns(3)
-with r1:
-    st.metric("🌙 심야", f"{int(df_analyzed['F_NIGHT'].sum()):,}건")
-with r2:
-    st.metric("💰 고액", f"{int(df_analyzed['F_HIGH'].sum()):,}건")
-with r3:
-    st.metric("🔍 키워드 의심", f"{int(df_analyzed['F_SUSPICIOUS'].sum()):,}건")
-panel_close()
-
-soft_divider()
-
-# =========================================================
-# 12) Download
-# =========================================================
-panel_open("⑥ 보고서 다운로드", "필터 적용/미적용 범위를 선택하여 CSV로 내려받습니다.")
-download_mode = st.selectbox(
-    "다운로드 범위 선택",
-    ["현재(전체 기준)", "심야만", "고액만", "키워드 의심만", "원본+분석 전체(필터 미적용)"],
+panel_open("④ 운영기준 위반 리스트", "탭별로 위반 유형을 분리하여 확인합니다.")
+tab_all, tab_night, tab_weekend, tab_pubhol, tab_rest = st.tabs(
+    ["전체(위반)", "🌙 심야", "📅 휴무일(주말)", "🎌 공휴일", "🚫 제한/중점 업종"]
 )
 
-if download_mode == "현재(전체 기준)":
+with tab_all:
+    render_table(filtered_view(df_analyzed, "all"), "all")
+with tab_night:
+    render_table(filtered_view(df_analyzed, "night"), "night")
+with tab_weekend:
+    render_table(filtered_view(df_analyzed, "weekend"), "weekend")
+with tab_pubhol:
+    render_table(filtered_view(df_analyzed, "pubhol"), "pubhol")
+with tab_rest:
+    render_table(filtered_view(df_analyzed, "restricted"), "restricted")
+panel_close()
+
+soft_divider()
+
+# =========================================================
+# 11) Monthly Summary (월별 합계/월별 위반 합계)
+# =========================================================
+panel_open("⑤ 월별 집계", "매월 반복 감사 운영을 위해 월별 집계(전체/위반)를 제공합니다.")
+tmp = df_analyzed.copy()
+tmp["P_MONTH"] = tmp["P_DT"].dt.to_period("M").astype(str)
+
+monthly_all = tmp.groupby("P_MONTH", as_index=False)["P_AMT"].sum().rename(columns={"P_AMT": "월합계(전체)"})
+monthly_viol = tmp[tmp["IS_VIOLATION"] == True].groupby("P_MONTH", as_index=False)["P_AMT"].sum().rename(columns={"P_AMT": "월합계(위반)"})
+monthly_cnt_all = tmp.groupby("P_MONTH", as_index=False).size().rename(columns={"size": "월건수(전체)"})
+monthly_cnt_viol = tmp[tmp["IS_VIOLATION"] == True].groupby("P_MONTH", as_index=False).size().rename(columns={"size": "월건수(위반)"})
+
+monthly = monthly_all.merge(monthly_viol, on="P_MONTH", how="left")
+monthly = monthly.merge(monthly_cnt_all, on="P_MONTH", how="left")
+monthly = monthly.merge(monthly_cnt_viol, on="P_MONTH", how="left")
+monthly = monthly.fillna(0)
+monthly = monthly.sort_values("P_MONTH", ascending=False)
+
+st.dataframe(monthly, use_container_width=True, height=280)
+
+panel_close()
+
+soft_divider()
+
+# =========================================================
+# 12) Download (운영기준 위반만 기본)
+# =========================================================
+panel_open("⑥ 다운로드", "운영기준 위반 내역 및 월별 집계를 내려받습니다.")
+
+download_mode = st.selectbox(
+    "다운로드 범위 선택",
+    ["위반만(전체)", "심야만", "휴무일(주말)만", "공휴일만", "제한/중점 업종만", "원본+분석 전체"],
+)
+
+if download_mode == "위반만(전체)":
     out_df = filtered_view(df_analyzed, "all")
 elif download_mode == "심야만":
     out_df = filtered_view(df_analyzed, "night")
-elif download_mode == "고액만":
-    out_df = filtered_view(df_analyzed, "high")
-elif download_mode == "키워드 의심만":
-    out_df = filtered_view(df_analyzed, "suspicious")
+elif download_mode == "휴무일(주말)만":
+    out_df = filtered_view(df_analyzed, "weekend")
+elif download_mode == "공휴일만":
+    out_df = filtered_view(df_analyzed, "pubhol")
+elif download_mode == "제한/중점 업종만":
+    out_df = filtered_view(df_analyzed, "restricted")
 else:
     out_df = df_analyzed.copy()
 
@@ -729,9 +738,24 @@ csv_bytes = final_out.to_csv(index=False).encode("utf-8-sig")
 st.download_button(
     label="⬇️ CSV 다운로드",
     data=csv_bytes,
-    file_name=f"Audit_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+    file_name=f"Compliance_Violations_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
     mime="text/csv",
 )
+
+# 월별 집계도 함께 내려받기(별도 버튼)
+monthly_csv = monthly.to_csv(index=False).encode("utf-8-sig")
+st.download_button(
+    label="⬇️ 월별 집계 CSV 다운로드",
+    data=monthly_csv,
+    file_name=f"Compliance_Monthly_Summary_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+    mime="text/csv",
+)
+
 panel_close()
 
-
+# =========================================================
+# Footer note (기준 출처 표시)
+# =========================================================
+st.caption(
+    "※ 점검 기준: 재원운영기준(Compliance) 문서의 '사용 주의 시간(23~06), 휴무일/공휴일, 제한·중점 업종' 항목을 기반으로 자동 분류합니다."
+)
