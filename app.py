@@ -636,10 +636,7 @@ def filtered_view(base: pd.DataFrame, mode: str) -> pd.DataFrame:
     df = df[df["risk_score"] >= int(min_score)]
     return df.sort_values("risk_score", ascending=False)
 
-def render_table(df: pd.DataFrame):
-    if df.empty:
-        st.info("조건에 해당하는 데이터가 없습니다.")
-        return
+def render_table(df, table_key: str):
     st.data_editor(
         df[display_cols],
         column_config={
@@ -650,16 +647,17 @@ def render_table(df: pd.DataFrame):
         use_container_width=True,
         hide_index=True,
         disabled=True,
+        key=f"data_editor_{table_key}",
     )
 
 panel_open("④ 정밀 검토 리스트", "전체/심야/고액/키워드 의심을 탭으로 분리하여 검토 효율을 높입니다.")
 tab_all, tab_night, tab_high, tab_susp = st.tabs(["전체", "🌙 심야", "💰 고액", "🔍 키워드 의심"])
 with tab_all:
-    render_table(filtered_view(df_analyzed, "all"))
+    render_table(filtered_view(df_analyzed, "night"), "night")
 with tab_night:
-    render_table(filtered_view(df_analyzed, "night"))
+     render_table(filtered_view(df_analyzed, "weekend"), "weekend")
 with tab_high:
-    render_table(filtered_view(df_analyzed, "high"))
+    render_table(filtered_view(df_analyzed, "holiday"), "holiday")
 with tab_susp:
     render_table(filtered_view(df_analyzed, "suspicious"))
 panel_close()
@@ -735,3 +733,4 @@ st.download_button(
     mime="text/csv",
 )
 panel_close()
+
