@@ -62,9 +62,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 2) 실무 맞춤형 분석 엔진 (차량운전비 예외 추가)
+# 2) 실무 맞춤형 분석 엔진 (차량운전비 완전 제거 로직)
 # =========================================================
-class AuditEngineV5_5:
+class AuditEngineV5_6:
     @staticmethod
     def run_analysis(df, keywords):
         # 업로드 데이터 컬럼 기준 매핑
@@ -75,35 +75,42 @@ class AuditEngineV5_5:
         df['P_DT'] = pd.to_datetime(df[t_col], errors='coerce')
         df['P_HOUR'] = df['P_DT'].dt.hour
         
-        # 기본 위반 필터 설정
+        # 1. 심야 사용 (23시 ~ 06시)
         df['F_NIGHT'] = df['P_HOUR'].apply(lambda x: x >= 23 or x <= 6)
+        
+        # 2. 휴무일/공휴일 사용
         df['F_WEEKEND'] = df['P_DT'].dt.weekday >= 5
         
-        # 금지업종 및 화이트리스트 로직
+        # 3. 금지업종 및 화이트리스트 (최우선 순위 적용)
         def check_compliance(row):
-            user = str(row[u_col])
-            merchant = str(row[m_col])
+            user_val = str(row[u_col])
+            merchant_val = str(row[m_col])
             
-            # ✅ [추가] 화이트리스트 1: 사용자명이 "차량운전비"인 경우 무조건 제외
-            if "차량운전비" in user:
+            # 🚨 [최우선 처리] 차량운전비 완전 제외
+            # 사용자명에 "차량운전비"가 들어있으면 어떠한 조건도 검사하지 않고 통과
+            if "차량운전비" in user_val:
                 return False
             
-            # ✅ [유지] 화이트리스트 2: 업무용 서비스 제외
-            if "카카오업무택시" in merchant or "카카오T비즈" in merchant:
+            # [유지] 업무용 서비스 예외
+            if "카카오업무택시" in merchant_val or "카카오T비즈" in merchant_val:
                 return False
             
-            # ✅ [유지] 지점명 오탐지 방지 포함 키워드 검사
+            # [유지] 금지업종 키워드 검사 (지점명 오탐지 방지 포함)
             for kw in keywords:
-                if kw in merchant:
-                    if kw == "주점" and re.search(r"[가-힣]주점$", merchant):
+                if kw in merchant_val:
+                    if kw == "주점" and re.search(r"[가-힣]주점$", merchant_val):
                         continue
                     return True
             return False
 
         df['F_RESTRICT'] = df.apply(check_compliance, axis=1)
 
-        # 종합 판정 (심야, 휴일, 금지업종 기반 / 분할결제 제외 유지)
+        # 종합 판정 (심야, 휴일, 금지업종 중 하나라도 해당 시 추출)
         df['IS_VIOLATION'] = df[['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT']].any(axis=1)
+        
+        # 🚨 [최종 필터링] 다시 한번 사용자 컬럼에서 차량운전비를 검색하여 불필요한 행 제거
+        # IS_VIOLATION이 True더라도 사용자가 차량운전비면 무조건 False로 바꿈
+        df.loc[df[u_col].astype(str).str.contains("차량운전비", na=False), 'IS_VIOLATION'] = False
         
         reasons = []
         for _, row in df.iterrows():
@@ -121,7 +128,7 @@ class AuditEngineV5_5:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0;">🛡️ Corporate Card Audit AI</h1>
-    <p style="color:#FFD700; margin:5px 0 0 0;">실무 최적화 준법 감시 시스템 v5.5 (차량운전비 예외 반영)</p>
+    <p style="color:#FFD700; margin:5px 0 0 0;">실무 최적화 준법 감시 시스템 v5.6 (차량운전비 예외 고도화)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -141,11 +148,12 @@ uploaded_file = st.file_uploader("법인카드 내역 파일 업로드", type=['
 
 if uploaded_file:
     df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-    engine = AuditEngineV5_5()
+    engine = AuditEngineV5_6()
     df_final = engine.run_analysis(df_raw, keywords)
+    
+    # IS_VIOLATION이 True인 데이터만 추출하여 대시보드 구성
     viol_df = df_final[df_final['IS_VIOLATION']]
     
-    # 지표 요약
     c1, c2, c3 = st.columns(3)
     c1.metric("🔍 총 검토 내역", f"{len(df_final):,}건")
     c2.metric("🚨 검토 필요 건", f"{len(viol_df):,}건")
