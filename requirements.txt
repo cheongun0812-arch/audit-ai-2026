@@ -4,3 +4,4 @@ streamlit-lottie
 plotly
 openpyxl
 matplotlib
+holidays
