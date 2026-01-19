@@ -36,7 +36,7 @@ st.markdown("""
         font-size: 1.1rem;
     }
 
-    /* ✅ [추가] 파일 업로드 관련 모든 텍스트(라벨, 파일명, 용량) 흰색 처리 */
+    /* 파일 업로드 관련 모든 텍스트 흰색 처리 */
     [data-testid="stFileUploaderLabel"] p { color: #FFFFFF !important; font-weight: 700 !important; }
     [data-testid="stFileUploaderFileName"] { color: #FFFFFF !important; }
     [data-testid="stFileUploaderFileData"] > div { color: #FFFFFF !important; }
@@ -62,9 +62,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 2) 실무 맞춤형 분석 엔진 (카카오 예외 + 지점명 오탐지 방지)
+# 2) 실무 맞춤형 분석 엔진 (차량운전비 예외 추가)
 # =========================================================
-class AuditEngineV5_4:
+class AuditEngineV5_5:
     @staticmethod
     def run_analysis(df, keywords):
         # 업로드 데이터 컬럼 기준 매핑
@@ -75,31 +75,34 @@ class AuditEngineV5_4:
         df['P_DT'] = pd.to_datetime(df[t_col], errors='coerce')
         df['P_HOUR'] = df['P_DT'].dt.hour
         
-        # 1. 심야 사용 (23시 ~ 06시)
+        # 기본 위반 필터 설정
         df['F_NIGHT'] = df['P_HOUR'].apply(lambda x: x >= 23 or x <= 6)
-        
-        # 2. 휴무일/공휴일 사용
         df['F_WEEKEND'] = df['P_DT'].dt.weekday >= 5
         
-        # 3. 금지업종 (화이트리스트 및 지점명 오탐지 방지 포함)
-        def check_restricted(merchant):
-            merchant = str(merchant)
-            # 화이트리스트: 업무용 서비스 제외
+        # 금지업종 및 화이트리스트 로직
+        def check_compliance(row):
+            user = str(row[u_col])
+            merchant = str(row[m_col])
+            
+            # ✅ [추가] 화이트리스트 1: 사용자명이 "차량운전비"인 경우 무조건 제외
+            if "차량운전비" in user:
+                return False
+            
+            # ✅ [유지] 화이트리스트 2: 업무용 서비스 제외
             if "카카오업무택시" in merchant or "카카오T비즈" in merchant:
                 return False
             
-            # 키워드 검사
+            # ✅ [유지] 지점명 오탐지 방지 포함 키워드 검사
             for kw in keywords:
                 if kw in merchant:
-                    # 지점명 오탐지 방지 로직
                     if kw == "주점" and re.search(r"[가-힣]주점$", merchant):
                         continue
                     return True
             return False
 
-        df['F_RESTRICT'] = df[m_col].apply(check_restricted)
+        df['F_RESTRICT'] = df.apply(check_compliance, axis=1)
 
-        # 종합 판정 (30분 연속결제 제외)
+        # 종합 판정 (심야, 휴일, 금지업종 기반 / 분할결제 제외 유지)
         df['IS_VIOLATION'] = df[['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT']].any(axis=1)
         
         reasons = []
@@ -118,7 +121,7 @@ class AuditEngineV5_4:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0;">🛡️ Corporate Card Audit AI</h1>
-    <p style="color:#FFD700; margin:5px 0 0 0;">실무 최적화 준법 감시 시스템 v5.4 (시인성 강화 패치)</p>
+    <p style="color:#FFD700; margin:5px 0 0 0;">실무 최적화 준법 감시 시스템 v5.5 (차량운전비 예외 반영)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -134,12 +137,11 @@ if admin_pw != "ktmos0402!":
     st.warning("인증이 필요합니다.")
     st.stop()
 
-# ✅ 파일 업로드 섹션: 라벨 및 파일 정보가 이제 흰색으로 표시됩니다.
 uploaded_file = st.file_uploader("법인카드 내역 파일 업로드", type=['xlsx', 'csv'])
 
 if uploaded_file:
     df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-    engine = AuditEngineV5_4()
+    engine = AuditEngineV5_5()
     df_final = engine.run_analysis(df_raw, keywords)
     viol_df = df_final[df_final['IS_VIOLATION']]
     
