@@ -3,176 +3,200 @@ import pandas as pd
 import re
 from datetime import datetime
 import plotly.express as px
-import plotly.graph_objects as go
 from io import BytesIO
-import requests
-from streamlit_lottie import st_lottie
 
 # =========================================================
-# 1) UI/UX 디자인 및 설정
+# 1) UI/UX 디자인 (v5.8 고대비 다크모드 유지)
 # =========================================================
 st.set_page_config(page_title="2026 Integrated Audit System", layout="wide")
 
 st.markdown("""
 <style>
     .stApp { background-color: #0E1117; }
-    h1, h2, h3, p, label { color: #FFFFFF !important; }
-    .violation-card { 
-        background: #2D0A0A; border: 2px solid #FF4B4B; padding: 20px; 
-        border-radius: 12px; margin-bottom: 25px; 
+    [data-testid="stSidebar"] { background-color: #F0F2F6 !important; }
+    [data-testid="stSidebar"] * { color: #111111 !important; font-weight: 800 !important; }
+    h1, h2, h3, .stMarkdown p, .stTabs [data-baseweb="tab"], label { color: #FFFFFF !important; }
+    .main-white-text { color: #FFFFFF !important; font-weight: 700 !important; }
+    [data-testid="stFileUploaderLabel"] p, [data-testid="stFileUploaderFileName"], 
+    [data-testid="stFileUploaderFileData"] > div, div[data-testid="stFileUploader"] small { color: #FFFFFF !important; }
+    .hero { background: #1A1E26; border-left: 5px solid #FFD700; padding: 20px; margin-bottom: 25px; }
+    .integrated-metric-card {
+        background: #FFFFFF; border-radius: 12px; padding: 20px;
+        display: flex; align-items: center; justify-content: space-between;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
-    .report-box { 
-        background: #1A1E26; border-left: 5px solid #FFD700; padding: 20px; 
-        margin-bottom: 25px; border-radius: 8px;
-    }
-    .stMetric { background-color: #1A1E26; padding: 15px; border-radius: 10px; border: 1px solid #333; }
+    .metric-main { border-right: 2px solid #EEEEEE; padding-right: 30px; }
+    .metric-label { color: #333333; font-size: 1.1rem; font-weight: 700; margin-bottom: 5px; }
+    .metric-value { color: #D62728; font-size: 2.2rem; font-weight: 900; line-height: 1; }
+    .metric-sub-container { display: flex; gap: 35px; padding-left: 30px; flex-grow: 1; justify-content: space-around; }
+    .sub-item { text-align: center; }
+    .sub-label { color: #666666; font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+    .sub-value { color: #111111; font-size: 1.3rem; font-weight: 800; }
+    [data-testid="stMetric"] { background: #FFFFFF; border-radius: 10px; padding: 15px; }
+    [data-testid="stMetricLabel"] { color: #333333 !important; font-weight: 700 !important; }
+    [data-testid="stMetricValue"] { color: #111111 !important; font-weight: 900 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Lottie 애니메이션 (고급스러운 AI 효과)
-def get_lottie(url):
-    try:
-        r = requests.get(url)
-        return r.json() if r.status_code == 200 else None
-    except: return None
-
-lottie_ai = get_lottie("https://assets5.lottiefiles.com/packages/lf20_fcfjwiyb.json")
-
 # =========================================================
-# 2) 핵심 감사 엔진 (지능형 컬럼 매핑 및 리스크 탐지)
+# 2) 통합 분석 엔진 (법인카드 & 연간 차량비)
 # =========================================================
-class AuditEngine2026:
+class AuditEngineV6_5:
     @staticmethod
-    def auto_map_columns(df_cols):
-        col_map = {
-            '금액': ['금액', '이용금액', '승인금액', '합계', '공급가액'],
-            '날짜': ['승인일자', '거래일자', '일자', '이용일자'],
-            '시간': ['승인일시', '승인시간', '시간', '일시'],
-            '가맹점': ['거래처명', '가맹점명', '상호', '사용처'],
-            '사용자': ['사용자', '이용자', '성명', '사원', '카드명']
-        }
-        final_map = {}
-        for target, keywords in col_map.items():
-            for col in df_cols:
-                if any(k in str(col).replace(" ", "") for k in keywords):
-                    final_map[target] = col
-                    break
-        return final_map
+    def run_card_audit(df, keywords):
+        # 법인카드 분석 로직 (기존 유지)
+        u_col, m_col, a_col, t_col = "사용자", "가맹점", "금액.1", "일시"
+        df = df.copy()
+        df['P_AMT'] = pd.to_numeric(df[a_col].astype(str).str.replace('[^0-9]', '', regex=True), errors='coerce').fillna(0)
+        df['P_DT'] = pd.to_datetime(df[t_col], errors='coerce')
+        df['P_HOUR'] = df['P_DT'].dt.hour
+        df['F_NIGHT'] = df['P_HOUR'].apply(lambda x: x >= 23 or x <= 6)
+        df['F_WEEKEND'] = df['P_DT'].dt.weekday >= 5
+        def check_rest(row):
+            user, merchant = str(row[u_col]), str(row[m_col])
+            if "차량운전비" in user or "카카오" in merchant: return False
+            for kw in keywords:
+                if kw in merchant:
+                    if kw == "주점" and re.search(r"[가-힣]주점$", merchant): continue
+                    return True
+            return False
+        df['F_RESTRICT'] = df.apply(check_rest, axis=1)
+        is_car_fee = df[u_col].astype(str).str.contains("차량운전비", na=False)
+        df.loc[is_car_fee, ['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT']] = False
+        df['IS_VIOLATION'] = df[['F_NIGHT', 'F_WEEKEND', 'F_RESTRICT']].any(axis=1)
+        reasons = []
+        for _, row in df.iterrows():
+            r = []
+            if row['F_NIGHT']: r.append("🌙심야")
+            if row['F_WEEKEND']: r.append("📅휴일")
+            if row['F_RESTRICT']: r.append("🚫금지업종")
+            reasons.append(" / ".join(r))
+        df['검토사유'] = reasons
+        return df
+
+    @staticmethod
+    def process_fuel_files(files):
+        # 1년치 차량비 파일 통합 및 전처리
+        all_data = []
+        for file in files:
+            try:
+                # 헤더 자동 감지 (본부/관리자 키워드 기준)
+                raw = pd.read_csv(file, header=None) if file.name.endswith('.csv') else pd.read_excel(file, header=None)
+                header_idx = next(i for i, row in raw.iterrows() if '본부' in str(row.values) and '관리자' in str(row.values))
+                df = pd.read_csv(file, skiprows=header_idx) if file.name.endswith('.csv') else pd.read_excel(file, skiprows=header_idx)
+                df.columns = [c.strip() for c in df.columns]
+                
+                # 유종 및 날짜 추출
+                engine_type = '전기' if '전기' in file.name else '내연기관'
+                date_match = re.search(r'\d+년\d+월', file.name)
+                month_val = date_match.group() if date_match else "기타"
+                
+                # 컬럼 표준화 및 정제
+                df = df.rename(columns={'(신)카드번호': '카드번호', '주유 외': '금액', '주유금액': '금액'})
+                df['금액'] = pd.to_numeric(df['금액'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+                df['하이패스비'] = pd.to_numeric(df['하이패스비'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+                
+                cols = ['본부', '부서', '관리자', '차종', '차량번호', '금액', '하이패스비']
+                df = df[df['관리자'].notna() & ~df['관리자'].astype(str).str.contains('소계|합계|관리자')][cols]
+                df['월정보'] = month_val
+                df['엔진유형'] = engine_type
+                all_data.append(df)
+            except: continue
+        return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
 
 # =========================================================
-# 3) 메인 화면 레이아웃
+# 3) 메인 화면 구성 및 메뉴 분리
 # =========================================================
-col_h1, col_h2 = st.columns([4, 1])
-with col_h1:
-    st.markdown("<h1 style='color:#FFD700 !important;'>🛡️ 2026 통합 AI 감사 포털</h1>", unsafe_allow_html=True)
-    st.write("실장님, 2026년 한 해의 투명한 경영을 위한 AI 에이전트가 가동 중입니다.")
-with col_h2:
-    if lottie_ai: st_lottie(lottie_ai, height=120)
-
-# 사이드바 설정
 with st.sidebar:
-    st.header("⚙️ 감사 기준 설정")
-    night_start = st.slider("심야 시작", 0, 23, 23)
-    night_end = st.slider("심야 종료", 0, 23, 6)
-    high_limit = st.number_input("고액 결제 기준(원)", value=500000)
+    st.markdown("## ⚙️ Audit Menu")
+    menu = st.radio("검증 대상 선택", ["💳 법인카드 모니터링", "⛽ 차량주유 모니터링(연간)"])
     st.divider()
-    st.info("💡 감사실 FUNFUN 2.0 전략 적용 중")
+    admin_pw = st.text_input("Password", type="password", value="ktmos0402!")
+    if menu == "💳 법인카드 모니터링":
+        kw_input = st.text_area("🚫 집중 모니터링 업종", "주점, 노래방, 유흥, 마사지, 골프장, 사우나, 귀금속, 백화점, 면세점", height=150)
+        keywords = [k.strip() for k in kw_input.split(",")]
 
-tab1, tab2, tab3 = st.tabs(["📈 법인카드 리스크 탐지", "📊 연간 데이터 분석", "💬 AI 실장님 상담소"])
+if admin_pw != "ktmos0402!":
+    st.warning("Password를 확인해 주세요.")
+    st.stop()
 
-# ---------------------------------------------------------
-# Tab 1: 법인카드 리스크 탐지 (실장님 요청 집중 반영)
-# ---------------------------------------------------------
-with tab1:
-    st.subheader("🚨 실시간 위반 의심 내역 탐지")
-    uploaded_file = st.file_uploader("감사 대상 파일(CSV/XLSX)을 업로드하세요", type=['csv', 'xlsx'], key="audit_file")
+# 히어로 섹션
+title = "Card Audit AI" if menu == "💳 법인카드 모니터링" else "Fuel Trend AI"
+st.markdown(f'<div class="hero"><h1>🛡️ {title}</h1><p style="color:#FFD700;">SIMPLE IS BEST : 통합 준법 감시 v6.5</p></div>', unsafe_allow_html=True)
 
+if menu == "💳 법인카드 모니터링":
+    uploaded_file = st.file_uploader("법인카드 내역 파일 업로드", type=['xlsx', 'csv'])
     if uploaded_file:
-        try:
-            # 데이터 로드 및 헤더 처리
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
+        df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+        df_final = AuditEngineV6_5.run_card_audit(df_raw, keywords)
+        viol_df = df_final[df_final['IS_VIOLATION']]
+        
+        # 지표 레이아웃 (v5.8 복구)
+        c1, c2, c3 = st.columns([1.2, 3.5, 1.5])
+        c1.metric("🔍 총 검토 내역", f"{len(df_final):,}건")
+        with c2:
+            st.markdown(f"""
+                <div class="integrated-metric-card">
+                    <div class="metric-main"><div class="metric-label">🚨 검토 필요 건</div><div class="metric-value">{len(viol_df):,}건</div></div>
+                    <div class="metric-sub-container">
+                        <div class="sub-item"><div class="sub-label">🌙 심야</div><div class="sub-value">{df_final['F_NIGHT'].sum()}건</div></div>
+                        <div class="sub-item"><div class="sub-label">📅 휴일</div><div class="sub-value">{df_final['F_WEEKEND'].sum()}건</div></div>
+                        <div class="sub-item"><div class="sub-label">🚫 업종</div><div class="sub-value">{df_final['F_RESTRICT'].sum()}건</div></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        c3.metric("💰 검토 금액 합계", f"{viol_df['P_AMT'].sum():,.0f}원")
+        
+        st.divider()
+        tab1, tab2 = st.tabs(["📋 검토 필요 내역", "📊 사용자별 분석"])
+        with tab1: st.dataframe(viol_df[['사용자', '가맹점', 'P_AMT', 'P_DT', '검토사유']], use_container_width=True, hide_index=True)
+        with tab2:
+            stats = viol_df.groupby('사용자').size().reset_index(name='건수').sort_values('건수', ascending=False)
+            fig = px.bar(stats.head(20), x='사용자', y='건수', color='건수', template="plotly_dark")
+            st.plotly_chart(fig, use_container_width=True)
+
+else: # ⛽ 차량주유 모니터링 (연간 추이 및 Spike 탐지)
+    files = st.file_uploader("1년치 차량비 파일들을 모두 선택하세요", type=['xlsx', 'csv'], accept_multiple_files=True)
+    if files:
+        df_yearly = AuditEngineV6_5.process_fuel_files(files)
+        if not df_yearly.empty:
+            # 상단 지표
+            ice_total = df_yearly[df_yearly['엔진유형']=='내연기관']['금액'].sum()
+            ev_total = df_yearly[df_yearly['엔진유형']=='전기']['금액'].sum()
             
-            # 상단 빈 행 제거 로직
-            if df.columns[0].startswith('Unnamed'):
-                df.columns = df.iloc[0]
-                df = df[1:].reset_index(drop=True)
-
-            # 컬럼 매핑 및 리포팅
-            f_map = AuditEngine2026.auto_map_columns(df.columns)
+            c1, c2, c3 = st.columns([1.2, 3.5, 1.5])
+            c1.metric("🔍 연간 데이터", f"{len(df_yearly):,}건")
+            with c2:
+                st.markdown(f"""
+                    <div class="integrated-metric-card">
+                        <div class="metric-main"><div class="metric-label">💰 연간 총 지출</div><div class="metric-value">{(ice_total+ev_total):,.0f}원</div></div>
+                        <div class="metric-sub-container">
+                            <div class="sub-item"><div class="sub-label">⛽ 내연기관</div><div class="sub-value">{ice_total:,.0f}원</div></div>
+                            <div class="sub-item"><div class="sub-label">🔋 전기차</div><div class="sub-value">{ev_total:,.0f}원</div></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            c3.metric("💳 총 하이패스", f"{df_yearly['하이패스비'].sum():,.0f}원")
             
-            # 필수 컬럼(금액) 체크
-            if '금액' not in f_map:
-                st.error("⚠️ '금액' 관련 컬럼을 찾을 수 없습니다. 파일 형식을 확인해주세요.")
-            else:
-                # 데이터 정제
-                df['P_AMT'] = pd.to_numeric(df[f_map['금액']].astype(str).str.replace('[^0-9]', '', regex=True), errors='coerce').fillna(0)
-                df['P_DATE'] = pd.to_datetime(df[f_map['날짜']].astype(str).str.split(' ').str[0], errors='coerce')
-                
-                # 리스크 탐지 (심야/휴일)
-                if '시간' in f_map:
-                    df['P_HOUR'] = pd.to_datetime(df[f_map['시간']].astype(str), errors='coerce').dt.hour
-                    df['IS_NIGHT'] = df['P_HOUR'].apply(lambda x: x >= night_start or x <= night_end if pd.notnull(x) else False)
-                else:
-                    df['IS_NIGHT'] = False
-                
-                df['IS_HOLIDAY'] = df['P_DATE'].dt.weekday >= 5
-                
-                # 위반 유형 라벨링
-                df['위반내용'] = ""
-                df.loc[df['IS_NIGHT'], '위반내용'] += "🌙심야 "
-                df.loc[df['IS_HOLIDAY'], '위반내용'] += "📅휴일 "
-                df.loc[df['P_AMT'] >= high_limit, '위반내용'] += "💰고액 "
-                
-                # 위반 리스트 필터링
-                violation_df = df[df['위반내용'] != ""].copy()
-                
-                # [최상단] 강렬한 위반 보고서
-                st.markdown('<div class="violation-card">', unsafe_allow_html=True)
-                st.markdown(f"### 🚩 위반 의심 내역 총 {len(violation_df)}건 탐지됨")
-                
-                if not violation_df.empty:
-                    # 표시용 컬럼 정리
-                    disp_cols = [f_map['날짜'], f_map['시간'], f_map['가맹점'], 'P_AMT', '위반내용', f_map['사용자']]
-                    disp_cols = [c for c in disp_cols if c in violation_df.columns or c == 'P_AMT' or c == '위반내용']
-                    
-                    res_display = violation_df[disp_cols].rename(columns={'P_AMT': '이용금액'})
-                    st.table(res_display.style.format({'이용금액': '{:,.0f}원'}))
-                    st.error("💡 위 리스트는 감사실의 'FUNFUN 준법 가이드' 위반 항목으로 분류되어 소명이 필요합니다.")
-                else:
-                    st.success("✅ 현재 파일에서 감지된 규정 위반 내역이 없습니다. 청렴한 조직문화를 응원합니다!")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                # 지출 통계 그래프
-                daily_usage = df.groupby('P_DATE')['P_AMT'].sum().reset_index()
-                fig = px.line(daily_usage, x='P_DATE', y='P_AMT', title="10월 지출 흐름 분석", template="plotly_dark", color_discrete_sequence=['#FFD700'])
-                st.plotly_chart(fig, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"🚨 시스템 오류 발생: {e}")
-
-# ---------------------------------------------------------
-# Tab 2: 연간 데이터 분석 (기존 app (1).py 기능 유지)
-# ---------------------------------------------------------
-with tab2:
-    st.subheader("📅 연간 지출 추이 및 Spike 탐지")
-    st.info("이 탭에서는 기존 연간 지출 데이터를 바탕으로 한 장기 트렌드 분석을 수행합니다.")
-    # 기존 app(1).py의 연간 분석 로직을 이 부분에 유지 또는 확장하여 사용 가능합니다.
-
-# ---------------------------------------------------------
-# Tab 3: AI 실장님 상담소
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("💬 AI 실장님 상담소 (비공개)")
-    user_q = st.text_input("고민되는 상황을 입력하시면 실장님의 페르소나로 답변해 드립니다.", placeholder="예: 주말에 고객사 미팅 후 식사 결제 가능한가요?")
-    if user_q:
-        st.markdown(f"""
-        <div class="report-box">
-            <b>사용자 질문:</b> {user_q}<br><br>
-            <b>🤖 AI 답변:</b> 실장님의 평소 지침에 따르면, 주말 사용 건은 '사전 품의서'가 없을 경우 
-            원칙적으로 제한됩니다. 하지만 불가피한 경우 '업무 연관성 입증 자료'를 감사실 포털에 즉시 업로드하도록 안내해 드립니다. 
-            <b>당신의 커리어는 소중하니까요!</b>
-        </div>
-        """, unsafe_allow_html=True)
+            st.divider()
+            # 관리자별 연간 추이 그래프 (Spike 탐지)
+            st.markdown("### 👤 관리자별 월별 지출 추이 (Spike 탐지)")
+            user_list = sorted(df_yearly['관리자'].unique())
+            target_user = st.selectbox("관리자를 선택하면 연간 추이가 나타납니다", user_list)
+            
+            user_df = df_yearly[df_yearly['관리자'] == target_user].sort_values('월정보')
+            avg_val = user_df['금액'].mean()
+            user_df['상태'] = user_df['금액'].apply(lambda x: '이상(평균 1.5배 초과)' if x > avg_val * 1.5 else '정상')
+            
+            
+            fig = px.bar(user_df, x='월정보', y='금액', color='상태', text_auto=',.0f',
+                         color_discrete_map={'정상': '#31333F', '이상(평균 1.5배 초과)': '#D62728'},
+                         template="plotly_dark", title=f"{target_user} 님의 월별 지출 현황")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 이상 징후 알림
+            spikes = user_df[user_df['상태'].str.contains('이상')]
+            if not spikes.empty:
+                st.warning(f"⚠️ {target_user} 님은 {', '.join(spikes['월정보'].tolist())}에 평소보다 지출이 크게 튀었습니다. 상세 검토를 권장합니다.")
+            
+            st.download_button("📥 통합 데이터 다운로드 (CSV)", df_yearly.to_csv(index=False).encode('utf-8-sig'), "Yearly_Fuel_Data.csv")
