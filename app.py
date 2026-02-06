@@ -79,6 +79,29 @@ class AuditEngineV6_5:
         df["HOUR"] = df["일시"].dt.hour
         df["DATE"] = df["일시"].dt.date
 
+        # ---------- 차량(차량비/유류비/주유/하이패스 등) 지출 제외 ----------
+        # 감사 검증 부담을 줄이기 위해 차량 관련 비용은 전부 분석 대상에서 제외합니다.
+        # (조직 기준에 맞게 패턴을 조정하세요)
+        vehicle_patterns = [
+            "차량운전비", "차량", "유류", "주유", "하이패스", "톨게이트", "통행료", "주차", "주차비",
+            "렌터카", "렌트카", "대리운전", "택시", "카카오t", "카카오택시", "고속도로"
+        ]
+        title_col = "문서 내용(제목)" if "문서 내용(제목)" in df.columns else None
+
+        def is_vehicle_expense_row(row) -> bool:
+            # 제목/사용자/가맹점 어디에라도 차량성 키워드가 있으면 제외
+            hay = []
+            if title_col:
+                hay.append(str(row.get(title_col, "")))
+            hay.append(str(row.get("사용자", "")))
+            hay.append(str(row.get("가맹점", "")))
+            joined = " ".join(hay)
+            return any(p in joined for p in vehicle_patterns)
+
+        df["F_VEHICLE_EXCLUDED"] = df.apply(is_vehicle_expense_row, axis=1)
+        df = df[~df["F_VEHICLE_EXCLUDED"]].copy()
+
+
         # ---------- 운영기준 룰 ----------
         # 심야(23~06)
         df["F_NIGHT"] = df["HOUR"].apply(lambda h: (h >= 23 or h <= 6) if pd.notna(h) else False)
@@ -109,12 +132,54 @@ class AuditEngineV6_5:
             "편의점", "구내식당", "공공기관", "차량운전비"
         ]
 
+        
         def is_restricted(merchant_name: str) -> bool:
-            n = AuditEngineV6_5.normalize_text(merchant_name)
+            """
+            제한/유흥 업종 판정(정규화 + 오탐 제거):
+            - '원주점/양주지점/남양주지점'처럼 '지점/점'이 포함된 지점명은 제한업종에서 제외
+            - 'OO bar ○○지점', 'OO club ○○지점' 형태도 제외(지점명 오탐 방지)
+            - '주점' 키워드는 문장 내부 부분일치로 오탐이 많아 '...주점'으로 끝나는 경우(유흥주점/단란주점 포함)만 제한으로 처리
+            """
+            raw = str(merchant_name)
+            n = AuditEngineV6_5.normalize_text(raw)
+
+            # 예외(오탐 방지)
             for ex in EXCEPTIONS:
                 if AuditEngineV6_5.normalize_text(ex) in n:
                     return False
-            return any(AuditEngineV6_5.normalize_text(k) in n for k in RESTRICTED)
+
+            # 지점/branch 표기 여부(지점명 오탐 제거)
+            has_branch_marker = ("지점" in n) or ("branch" in n)
+
+            # '...점'으로 끝나는 일반 지점 표기(예: 원주점, 마곡점 등)
+            ends_with_store = n.endswith("점") or n.endswith("지점")
+
+            # 1) 주점: '...주점'으로 끝나는 경우만 제한 (유흥주점/단란주점 포함)
+            if ("유흥주점" in n) or ("단란주점" in n) or n.endswith("주점"):
+                return True
+
+            # 2) bar / lounge / club: 지점 표기가 있으면 제외
+            # (예: "OO bar 마곡지점", "OO club 마곡점" 등)
+            if any(AuditEngineV6_5.normalize_text(k) in n for k in ["bar", "lounge", "pub", "club", "클럽"]):
+                if has_branch_marker or ends_with_store:
+                    return False
+                # 나이트클럽은 지점표기와 무관하게 제한
+                if ("나이트클럽" in n) or ("nightclub" in n):
+                    return True
+                # 그 외 club/bar는 제한 처리(지점 표기 없을 때)
+                return True
+
+            # 3) 그 외 제한 키워드: 지점명 오탐 가능성이 낮은 것만 그대로 적용
+            #    단, '노래방'도 지점 표기가 있더라도 실제 업종일 가능성이 높아 유지
+            other_keywords = [k for k in RESTRICTED if k not in ["주점", "bar", "lounge", "pub", "club", "클럽"]]
+            if any(AuditEngineV6_5.normalize_text(k) in n for k in other_keywords):
+                return True
+
+            # 4) 지점명만 있는 경우는 제한 아님
+            if has_branch_marker or ends_with_store:
+                return False
+
+            return False
 
         df["F_RESTRICT"] = df["가맹점"].apply(is_restricted)
 
